@@ -5,10 +5,36 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    
+    <!-- NuGet Package Metadata -->
+    <PackageId>JohBloch.ConfluentKafka.Clients</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>JohBloch</Authors>
+    <Company>JohBloch</Company>
+    <Description>A high-performance Kafka client library for .NET with support for Avro, JSON, and Protobuf schema serialization, built-in dead letter queue (DLQ) handling, and OAuth authentication.</Description>
+    <PackageTags>kafka;confluent;avro;protobuf;json;schema-registry;dlq;dead-letter-queue;oauth;messaging;streaming</PackageTags>
+    <PackageProjectUrl>https://github.com/JohBloch/JohBloch.ConfluentKafka.Clients</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/JohBloch/JohBloch.ConfluentKafka.Clients</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <Copyright>Copyright © 2026 JohBloch</Copyright>
+    <PackageReleaseNotes>Initial release with Avro, JSON, and Protobuf support, DLQ functionality, and OAuth authentication.</PackageReleaseNotes>
   </PropertyGroup>
+  
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Confluent.Kafka" Version="2.3.0" />
+    <PackageReference Include="Chr.Avro.Confluent" Version="10.12.0" />
+    <PackageReference Include="Confluent.Kafka" Version="2.13.0" />
+    <PackageReference Include="Confluent.SchemaRegistry" Version="2.13.0" />
+    <PackageReference Include="protobuf-net" Version="3.2.30" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="9.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="9.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Options" Version="9.0.0" />
   </ItemGroup>
 
 </Project>

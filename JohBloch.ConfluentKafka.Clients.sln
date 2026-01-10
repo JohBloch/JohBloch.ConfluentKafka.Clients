@@ -8,7 +8,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{B2C3D4E5
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JohBloch.ConfluentKafka.Clients", "src\JohBloch.ConfluentKafka.Clients\JohBloch.ConfluentKafka.Clients.csproj", "{C3D4E5F6-A7B8-9012-CDEF-123456789012}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JohBloch.ConfluentKafka.Clients.Tests", "tests\JohBloch.ConfluentKafka.Clients.Tests\JohBloch.ConfluentKafka.Clients.Tests.csproj", "{D4E5F6A7-B8C9-0123-DEF1-234567890123}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JohBloch.ConfluentKafka.Clients.Tests", "tests\JohBloch.ConfluentKafka.Clients.Tests.csproj", "{D4E5F6A7-B8C9-0123-DEF1-234567890123}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
