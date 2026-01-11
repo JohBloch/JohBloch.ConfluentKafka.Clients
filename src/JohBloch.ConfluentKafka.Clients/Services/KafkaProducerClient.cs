@@ -1,10 +1,12 @@
 using JohBloch.ConfluentKafka.Clients.Services.Serialization;
+using System.ComponentModel;
 
 namespace JohBloch.ConfluentKafka.Clients.Services
 {
     /// <summary>
     /// Kafka producer client supporting single and batch message production with OAuth bearer authentication.
     /// </summary>
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public class KafkaProducerClient : IKafkaProducerClient, IDisposable
     {
         private readonly ILogger<KafkaProducerClient> _logger;
@@ -34,9 +36,13 @@ namespace JohBloch.ConfluentKafka.Clients.Services
             IDictionary<string, string>? globalConfig = null,
             IDictionary<string, IDictionary<string, string>>? perProducerConfigs = null)
         {
-            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            ArgumentNullException.ThrowIfNull(logger);
+            ArgumentNullException.ThrowIfNull(securityTokenProvider);
+            ArgumentNullException.ThrowIfNull(schemaRegistryFactory);
+            
+            _logger = logger;
             _producerOptions = new Dictionary<string, KafkaProducerOptions>(producerOptions);
-            _security = securityTokenProvider ?? throw new ArgumentNullException(nameof(securityTokenProvider));
+            _security = securityTokenProvider;
             _schemaRegistry = schemaRegistryFactory.CreateClient();
             _globalConfig = globalConfig;
             _perProducerConfigs = perProducerConfigs;
@@ -49,8 +55,12 @@ namespace JohBloch.ConfluentKafka.Clients.Services
         private IProducer<string, TValue> CreateProducer<TValue>(string producerKey, bool batchOptimized, ISerializer<TValue>? serializer = null)
         {
             var cfg = BuildConfig(producerKey, batchOptimized);
-            var builder = new ProducerBuilder<string, TValue>(cfg)
-                .SetOAuthBearerTokenRefreshHandler(async (client, _) =>
+            var builder = new ProducerBuilder<string, TValue>(cfg);
+
+            // Only attach OAuth refresh handler when OAuth is explicitly enabled.
+            if (cfg.SaslMechanism == SaslMechanism.OAuthBearer)
+            {
+                builder.SetOAuthBearerTokenRefreshHandler(async (client, _) =>
                 {
                     try
                     {
@@ -64,7 +74,10 @@ namespace JohBloch.ConfluentKafka.Clients.Services
                         _logger.LogError(ex, "OAuth token refresh failed");
                         client.OAuthBearerSetTokenFailure(ex.Message);
                     }
-                })
+                });
+            }
+
+            builder
                 .SetLogHandler((_, log) => _logger.LogInformation("Kafka: {msg}", log.Message))
                 .SetErrorHandler((_, err) => _logger.LogError("Kafka error: {err}", err.Reason));
 
@@ -87,27 +100,12 @@ namespace JohBloch.ConfluentKafka.Clients.Services
             var saslCfg = _security.GetKafkaSaslConfig();
             var config = KafkaConfigHelper.CreateBaseConfig(producerOpts, saslCfg);
 
-            // Apply optional global configs (only if value is non-empty)
-            if (_globalConfig is not null)
+            // Apply optional global configs and per-producer overrides
+            KafkaConfigHelper.ApplyConfigDictionary(config, _globalConfig);
+            
+            if (_perProducerConfigs?.TryGetValue(producerKey, out var overrides) == true)
             {
-                foreach (var kvp in _globalConfig)
-                {
-                    if (!string.IsNullOrWhiteSpace(kvp.Value))
-                    {
-                        config.Set(kvp.Key, kvp.Value);
-                    }
-                }
-            }
-            // Apply optional per-producer overrides
-            if (_perProducerConfigs is not null && _perProducerConfigs.TryGetValue(producerKey, out var overrides) && overrides is not null)
-            {
-                foreach (var kvp in overrides)
-                {
-                    if (!string.IsNullOrWhiteSpace(kvp.Value))
-                    {
-                        config.Set(kvp.Key, kvp.Value);
-                    }
-                }
+                KafkaConfigHelper.ApplyConfigDictionary(config, overrides);
             }
 
             if (batchOptimized)
@@ -133,10 +131,26 @@ namespace JohBloch.ConfluentKafka.Clients.Services
                 var cfg = new ProducerConfig
                 {
                     BootstrapServers = producerOpts.BootstrapServers,
-                    SecurityProtocol = SecurityProtocol.SaslSsl,
-                    SaslMechanism = SaslMechanism.OAuthBearer,
+                    // Default to plaintext to allow local testing without requiring SASL/OAuth.
+                    SecurityProtocol = SecurityProtocol.Plaintext,
                     ClientId = producerOpts.ApplicationId
                 };
+
+                // If SASL is configured, switch protocol and set mechanism when applicable.
+                if (saslCfg is not null && saslCfg.Count > 0)
+                {
+                    if (saslCfg.TryGetValue("sasl.mechanism", out var mech) &&
+                        mech.Equals("oauthbearer", StringComparison.OrdinalIgnoreCase))
+                    {
+                        cfg.SecurityProtocol = SecurityProtocol.SaslSsl;
+                        cfg.SaslMechanism = SaslMechanism.OAuthBearer;
+                    }
+                    else if (saslCfg.Keys.Any(k => k.StartsWith("sasl.", StringComparison.OrdinalIgnoreCase)))
+                    {
+                        // SASL is being used (mechanism might be set via config dictionary)
+                        cfg.SecurityProtocol = SecurityProtocol.SaslSsl;
+                    }
+                }
 
                 // Apply SASL settings provided by the security provider, if any
                 if (saslCfg != null)
@@ -148,6 +162,24 @@ namespace JohBloch.ConfluentKafka.Clients.Services
                 }
 
                 return cfg;
+            }
+
+            /// <summary>
+            /// Applies configuration dictionary to a client config, skipping null or whitespace values.
+            /// </summary>
+            /// <param name="config">The client configuration to apply settings to.</param>
+            /// <param name="configDictionary">Dictionary of librdkafka configuration key-value pairs.</param>
+            public static void ApplyConfigDictionary(ClientConfig config, IDictionary<string, string>? configDictionary)
+            {
+                if (configDictionary is null) return;
+
+                foreach (var kvp in configDictionary)
+                {
+                    if (!string.IsNullOrWhiteSpace(kvp.Value))
+                    {
+                        config.Set(kvp.Key, kvp.Value);
+                    }
+                }
             }
 
             /// <summary>
@@ -488,11 +520,27 @@ namespace JohBloch.ConfluentKafka.Clients.Services
         /// Sends a failed message to the dead letter queue with JSON schema.
         /// Uses the configured DLQ topic pattern (default: "dlq-{topic}").
         /// </summary>
+        public Task<KafkaResult> SendToDeadLetterQueueAsync(Models.DeadLetterMessage dlqMessage)
+            => SendToDeadLetterQueueAsync(dlqMessage, producerKey: "default", ct: default);
+
+        /// <inheritdoc cref="JohBloch.ConfluentKafka.Clients.Interfaces.IKafkaProducerClient.SendToDeadLetterQueueAsync(JohBloch.ConfluentKafka.Clients.Models.DeadLetterMessage,System.Threading.CancellationToken)" />
+        public Task<KafkaResult> SendToDeadLetterQueueAsync(Models.DeadLetterMessage dlqMessage, CancellationToken ct)
+            => SendToDeadLetterQueueAsync(dlqMessage, producerKey: "default", ct: ct);
+
+        /// <inheritdoc cref="JohBloch.ConfluentKafka.Clients.Interfaces.IKafkaProducerClient.SendToDeadLetterQueueAsync(JohBloch.ConfluentKafka.Clients.Models.DeadLetterMessage,string)" />
+        public Task<KafkaResult> SendToDeadLetterQueueAsync(Models.DeadLetterMessage dlqMessage, string producerKey)
+            => SendToDeadLetterQueueAsync(dlqMessage, producerKey: producerKey, ct: default);
+
+        /// <inheritdoc cref="JohBloch.ConfluentKafka.Clients.Interfaces.IKafkaProducerClient.SendToDeadLetterQueueAsync(JohBloch.ConfluentKafka.Clients.Models.DeadLetterMessage,string,System.Threading.CancellationToken)" />
+        public Task<KafkaResult> SendToDeadLetterQueueAsync(Models.DeadLetterMessage dlqMessage, string producerKey, CancellationToken ct)
+            => SendToDeadLetterQueueAsync(dlqMessage, key: null, producerKey: producerKey, ct: ct);
+
+        /// <inheritdoc cref="JohBloch.ConfluentKafka.Clients.Interfaces.IKafkaProducerClient.SendToDeadLetterQueueAsync(JohBloch.ConfluentKafka.Clients.Models.DeadLetterMessage,string,string,System.Threading.CancellationToken)" />
         public async Task<KafkaResult> SendToDeadLetterQueueAsync(
             Models.DeadLetterMessage dlqMessage,
-            string? key = null,
-            string producerKey = "default",
-            CancellationToken ct = default)
+            string? key,
+            string producerKey,
+            CancellationToken ct)
         {
             if (dlqMessage == null) throw new ArgumentNullException(nameof(dlqMessage));
             if (!_producerOptions.TryGetValue(producerKey, out var options))
@@ -530,13 +578,29 @@ namespace JohBloch.ConfluentKafka.Clients.Services
         /// Sends a failed message to the dead letter queue, automatically creating the DLQ message from a consume result and exception.
         /// Uses the configured DLQ topic pattern (default: "dlq-{topic}").
         /// </summary>
+        public Task<KafkaResult> SendToDeadLetterQueueAsync<TKey, TValue>(ConsumeResult<TKey, TValue> originalMessage, Exception exception)
+            => SendToDeadLetterQueueAsync(originalMessage, exception, retryCount: 0, producerKey: "default", additionalMetadata: null, ct: default);
+
+        /// <inheritdoc cref="JohBloch.ConfluentKafka.Clients.Interfaces.IKafkaProducerClient.SendToDeadLetterQueueAsync{TKey,TValue}(Confluent.Kafka.ConsumeResult{TKey,TValue},System.Exception,System.Threading.CancellationToken)" />
+        public Task<KafkaResult> SendToDeadLetterQueueAsync<TKey, TValue>(ConsumeResult<TKey, TValue> originalMessage, Exception exception, CancellationToken ct)
+            => SendToDeadLetterQueueAsync(originalMessage, exception, retryCount: 0, producerKey: "default", additionalMetadata: null, ct: ct);
+
+        /// <inheritdoc cref="JohBloch.ConfluentKafka.Clients.Interfaces.IKafkaProducerClient.SendToDeadLetterQueueAsync{TKey,TValue}(Confluent.Kafka.ConsumeResult{TKey,TValue},System.Exception,int)" />
+        public Task<KafkaResult> SendToDeadLetterQueueAsync<TKey, TValue>(ConsumeResult<TKey, TValue> originalMessage, Exception exception, int retryCount)
+            => SendToDeadLetterQueueAsync(originalMessage, exception, retryCount: retryCount, producerKey: "default", additionalMetadata: null, ct: default);
+
+        /// <inheritdoc cref="JohBloch.ConfluentKafka.Clients.Interfaces.IKafkaProducerClient.SendToDeadLetterQueueAsync{TKey,TValue}(Confluent.Kafka.ConsumeResult{TKey,TValue},System.Exception,int,System.Threading.CancellationToken)" />
+        public Task<KafkaResult> SendToDeadLetterQueueAsync<TKey, TValue>(ConsumeResult<TKey, TValue> originalMessage, Exception exception, int retryCount, CancellationToken ct)
+            => SendToDeadLetterQueueAsync(originalMessage, exception, retryCount: retryCount, producerKey: "default", additionalMetadata: null, ct: ct);
+
+        /// <inheritdoc cref="JohBloch.ConfluentKafka.Clients.Interfaces.IKafkaProducerClient.SendToDeadLetterQueueAsync{TKey,TValue}(Confluent.Kafka.ConsumeResult{TKey,TValue},System.Exception,int,string,System.Collections.Generic.Dictionary{string,string},System.Threading.CancellationToken)" />
         public async Task<KafkaResult> SendToDeadLetterQueueAsync<TKey, TValue>(
             ConsumeResult<TKey, TValue> originalMessage,
             Exception exception,
-            int retryCount = 0,
-            string producerKey = "default",
-            Dictionary<string, string>? additionalMetadata = null,
-            CancellationToken ct = default)
+            int retryCount,
+            string producerKey,
+            Dictionary<string, string>? additionalMetadata,
+            CancellationToken ct)
         {
             if (originalMessage == null) throw new ArgumentNullException(nameof(originalMessage));
             if (exception == null) throw new ArgumentNullException(nameof(exception));

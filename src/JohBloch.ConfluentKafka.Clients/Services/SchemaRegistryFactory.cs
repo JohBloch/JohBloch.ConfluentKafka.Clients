@@ -1,9 +1,12 @@
+using System.ComponentModel;
+
 namespace JohBloch.ConfluentKafka.Clients.Services
 {
     /// <summary>
     /// Factory for creating configured instances of <see cref="ISchemaRegistryClient"/>.
     /// Uses <see cref="SchemaRegistryOptions"/> to set OAuth and connectivity.
     /// </summary>
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public class SchemaRegistryFactory : ISchemaRegistryFactory
     {
         /// <summary>
@@ -38,15 +41,22 @@ namespace JohBloch.ConfluentKafka.Clients.Services
 
             var config = new SchemaRegistryConfig
             {
-                Url = _srOptions.Url,
-                BearerAuthCredentialsSource = BearerAuthCredentialsSource.OAuthBearer,
-                BearerAuthClientId = _srOptions.ClientId,
-                BearerAuthClientSecret = _srOptions.ClientSecret,
-                BearerAuthScope = _srOptions.Scope,
-                BearerAuthLogicalCluster = _srOptions.LogicalCluster,
-                BearerAuthTokenEndpointUrl = _srOptions.TokenEndpointUrl,
-                BearerAuthIdentityPoolId = _srOptions.IdentityPoolId
+                Url = _srOptions.Url
             };
+
+            // Only enable OAuth bearer auth when it's explicitly configured.
+            if (!string.IsNullOrWhiteSpace(_srOptions.TokenEndpointUrl) &&
+                !string.IsNullOrWhiteSpace(_srOptions.ClientId) &&
+                !string.IsNullOrWhiteSpace(_srOptions.ClientSecret))
+            {
+                config.BearerAuthCredentialsSource = BearerAuthCredentialsSource.OAuthBearer;
+                config.BearerAuthClientId = _srOptions.ClientId;
+                config.BearerAuthClientSecret = _srOptions.ClientSecret;
+                config.BearerAuthScope = _srOptions.Scope;
+                config.BearerAuthLogicalCluster = _srOptions.LogicalCluster;
+                config.BearerAuthTokenEndpointUrl = _srOptions.TokenEndpointUrl;
+                config.BearerAuthIdentityPoolId = _srOptions.IdentityPoolId;
+            }
 
             return new CachedSchemaRegistryClient(config);
         }

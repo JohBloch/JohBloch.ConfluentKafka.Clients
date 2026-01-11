@@ -87,6 +87,20 @@ BenchmarkDotNet.Artifacts/
 *.local.settings.json
 appsettings.Development.json
 
+# Environment/secrets
+.env
+.env.*
+appsettings.*.json
+!appsettings.example.json
+!appsettings.sample.json
+
+# Certificates / private keys
+*.pfx
+*.p12
+*.pem
+*.key
+*.cer
+
 # OS files
 .DS_Store
 Thumbs.db

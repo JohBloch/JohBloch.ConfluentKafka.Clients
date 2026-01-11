@@ -1,0 +1,15 @@
+# Default owners for the entire repository
+*       @JohBloch
+
+# Workflows and repository meta
+.github/ @JohBloch
+
+# Library source
+src/    @JohBloch
+
+# Tests
+tests/  @JohBloch
+
+# Examples and docs
+examples/ @JohBloch
+docs/     @JohBloch

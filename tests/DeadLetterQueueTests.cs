@@ -119,7 +119,7 @@ public class DeadLetterQueueTests
 
         // Act & Assert
         await Assert.ThrowsAsync<ArgumentNullException>(() =>
-            client.SendToDeadLetterQueueAsync(null!, key: "test-key"));
+            client.SendToDeadLetterQueueAsync(null!, key: "test-key", producerKey: "default", ct: default));
     }
 
     [Fact]
@@ -135,7 +135,7 @@ public class DeadLetterQueueTests
 
         // Act & Assert
         var ex = await Assert.ThrowsAsync<ArgumentException>(() =>
-            client.SendToDeadLetterQueueAsync(dlqMessage, producerKey: "nonexistent"));
+            client.SendToDeadLetterQueueAsync(dlqMessage, producerKey: "nonexistent", ct: default));
         
         Assert.Contains("nonexistent", ex.Message);
     }
@@ -220,7 +220,7 @@ public class DeadLetterQueueTests
 
         // Act & Assert
         var ex = await Assert.ThrowsAsync<ArgumentException>(() =>
-            client.SendToDeadLetterQueueAsync(consumeResult, exception, producerKey: "invalid"));
+            client.SendToDeadLetterQueueAsync(consumeResult, exception, retryCount: 0, producerKey: "invalid", additionalMetadata: null, ct: default));
         
         Assert.Contains("invalid", ex.Message);
     }

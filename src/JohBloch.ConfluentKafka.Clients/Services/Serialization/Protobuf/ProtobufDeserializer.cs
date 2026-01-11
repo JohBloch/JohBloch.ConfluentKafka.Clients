@@ -25,23 +25,8 @@ namespace JohBloch.ConfluentKafka.Clients.Services.Serialization.Protobuf
         {
             try
             {
-                // Protocol Buffers wire format with Schema Registry:
-                // Byte 0: Magic byte (0x00)
-                // Bytes 1-4: Schema ID (big-endian)
-                // Bytes 5+: Protobuf message
-                
-                byte[] protoData;
-                
-                if (data.Length >= 5 && data[0] == 0x00)
-                {
-                    // Has Schema Registry wire format - skip magic byte and schema ID
-                    protoData = data[5..];
-                }
-                else
-                {
-                    // Plain Protobuf data without Schema Registry wrapper
-                    protoData = data;
-                }
+                // Extract Protobuf payload, handling Schema Registry wire format if present
+                var protoData = SchemaRegistryWireFormat.ExtractPayload(data);
 
                 // Deserialize using protobuf-net
                 using var stream = new MemoryStream(protoData);

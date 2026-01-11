@@ -444,7 +444,7 @@ public class KafkaProducerClientTests
         var client = new KafkaProducerClient(new Dictionary<string, KafkaProducerOptions> { { "default", new KafkaProducerOptions { BootstrapServers = "localhost:9092", ApplicationId = "app-id", Topic = topic } } }, new FakeTokenProvider(), new FakeSchemaRegistryFactory(), NullLogger<KafkaProducerClient>.Instance);
         var mi = typeof(KafkaProducerClient).GetMethod("ProduceMessageAsync", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
         Assert.NotNull(mi);
-        var task = (Task<KafkaResult>)mi!.MakeGenericMethod(typeof(T)).Invoke(client, new object[] { prod, value, key, topic, headers!, ct })!;
+        var task = (Task<KafkaResult>)mi.MakeGenericMethod(typeof(T)).Invoke(client, new object?[] { prod, value, key, topic, headers, ct })!;
         return await task;
     }
 

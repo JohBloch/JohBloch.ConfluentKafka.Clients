@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<RuleSet Name="All Rules Disabled" Description="All Rules are disabled." ToolsVersion="15.0">
+   <Rules AnalyzerId="Microsoft.CodeAnalysis.PublicApiAnalyzers" RuleNamespace="Microsoft.CodeAnalysis.PublicApiAnalyzers">
+      <Rule Id="RS0016" Action="None" />             <!-- Add public types and members to the declared API -->
+      <Rule Id="RS0017" Action="None" />             <!-- Remove deleted types and members from the declared API -->
+      <Rule Id="RS0022" Action="None" />             <!-- Constructor make noninheritable base class inheritable -->
+      <Rule Id="RS0024" Action="None" />             <!-- The contents of the public API files are invalid -->
+      <Rule Id="RS0025" Action="None" />             <!-- Do not duplicate symbols in public API files -->
+      <Rule Id="RS0026" Action="None" />             <!-- Do not add multiple public overloads with optional parameters -->
+      <Rule Id="RS0027" Action="None" />             <!-- API with optional parameter(s) should have the most parameters amongst its public overloads -->
+      <Rule Id="RS0036" Action="None" />             <!-- Annotate nullability of public types and members in the declared API -->
+      <Rule Id="RS0037" Action="None" />             <!-- Enable tracking of nullability of reference types in the declared API -->
+      <Rule Id="RS0041" Action="None" />             <!-- Public members should not use oblivious types -->
+      <Rule Id="RS0048" Action="None" />             <!-- Missing shipped or unshipped public API file -->
+      <Rule Id="RS0050" Action="None" />             <!-- API is marked as removed but it exists in source code -->
+      <Rule Id="RS0051" Action="None" />             <!-- Add internal types and members to the declared API -->
+      <Rule Id="RS0052" Action="None" />             <!-- Remove deleted types and members from the declared internal API -->
+      <Rule Id="RS0053" Action="None" />             <!-- The contents of the internal API files are invalid -->
+      <Rule Id="RS0054" Action="None" />             <!-- Do not duplicate symbols in internal API files -->
+      <Rule Id="RS0055" Action="None" />             <!-- Annotate nullability of internal types and members in the declared API -->
+      <Rule Id="RS0056" Action="None" />             <!-- Enable tracking of nullability of reference types in the declared API -->
+      <Rule Id="RS0057" Action="None" />             <!-- Internal members should not use oblivious types -->
+      <Rule Id="RS0058" Action="None" />             <!-- Missing shipped or unshipped internal API file -->
+      <Rule Id="RS0059" Action="None" />             <!-- Do not add multiple public overloads with optional parameters -->
+      <Rule Id="RS0060" Action="None" />             <!-- API with optional parameter(s) should have the most parameters amongst its public overloads -->
+      <Rule Id="RS0061" Action="None" />             <!-- Constructor make noninheritable base class inheritable -->
+   </Rules>
+</RuleSet>

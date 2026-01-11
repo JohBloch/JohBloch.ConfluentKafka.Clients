@@ -58,10 +58,10 @@ namespace JohBloch.ConfluentKafka.Clients.Services.Serialization
         {
             try
             {
-                // Check if data has Schema Registry wire format (magic byte + schema ID)
-                if (data.Length < 5 || data[0] != 0x00)
+                // Check if data has Schema Registry wire format
+                if (!SchemaRegistryWireFormat.HasWireFormat(data))
                 {
-                    // No magic byte - assume plain JSON
+                    // No Schema Registry format - assume plain JSON
                     return Models.SchemaType.Json;
                 }
 

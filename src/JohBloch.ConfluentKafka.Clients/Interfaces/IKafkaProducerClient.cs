@@ -45,19 +45,47 @@ namespace JohBloch.ConfluentKafka.Clients.Interfaces
         Task<BatchResult> SendBatchAsync<T>(IEnumerable<T> messages, Func<T, string> keySelector, string producerKey, Headers? headers = null, ISerializer<T>? serializer = null, CancellationToken ct = default);
 
         /// <summary>
-        /// Sends a failed message to the dead letter queue with JSON schema.
+        /// Sends a dead letter message to the dead letter queue using the default producer configuration.
         /// Uses the configured DLQ topic pattern (default: "dlq-{topic}").
         /// </summary>
         /// <param name="dlqMessage">Dead letter queue message with error details.</param>
-        /// <param name="key">Optional key for the DLQ message (defaults to original key if available).</param>
-        /// <param name="producerKey">Logical producer configuration key.</param>
-        /// <param name="ct">Cancellation token.</param>
         /// <returns>Result with delivery metadata and success flag.</returns>
-        Task<KafkaResult> SendToDeadLetterQueueAsync(Models.DeadLetterMessage dlqMessage, string? key = null, string producerKey = "default", CancellationToken ct = default);
+        Task<KafkaResult> SendToDeadLetterQueueAsync(Models.DeadLetterMessage dlqMessage);
+
+        /// <inheritdoc cref="SendToDeadLetterQueueAsync(JohBloch.ConfluentKafka.Clients.Models.DeadLetterMessage)" />
+        Task<KafkaResult> SendToDeadLetterQueueAsync(Models.DeadLetterMessage dlqMessage, CancellationToken ct);
+
+        /// <inheritdoc cref="SendToDeadLetterQueueAsync(JohBloch.ConfluentKafka.Clients.Models.DeadLetterMessage)" />
+        Task<KafkaResult> SendToDeadLetterQueueAsync(Models.DeadLetterMessage dlqMessage, string producerKey);
+
+        /// <inheritdoc cref="SendToDeadLetterQueueAsync(JohBloch.ConfluentKafka.Clients.Models.DeadLetterMessage)" />
+        Task<KafkaResult> SendToDeadLetterQueueAsync(Models.DeadLetterMessage dlqMessage, string producerKey, CancellationToken ct);
+
+        /// <inheritdoc cref="SendToDeadLetterQueueAsync(JohBloch.ConfluentKafka.Clients.Models.DeadLetterMessage)" />
+        Task<KafkaResult> SendToDeadLetterQueueAsync(Models.DeadLetterMessage dlqMessage, string? key, string producerKey, CancellationToken ct);
 
         /// <summary>
         /// Sends a failed message to the dead letter queue, automatically creating the DLQ message from a consume result and exception.
         /// Uses the configured DLQ topic pattern (default: "dlq-{topic}").
+        /// </summary>
+        /// <typeparam name="TKey">Type of the message key.</typeparam>
+        /// <typeparam name="TValue">Type of the message value.</typeparam>
+        /// <param name="originalMessage">The original consumed message that failed.</param>
+        /// <param name="exception">The exception that caused the failure.</param>
+        /// <returns>Result with delivery metadata and success flag.</returns>
+        Task<KafkaResult> SendToDeadLetterQueueAsync<TKey, TValue>(ConsumeResult<TKey, TValue> originalMessage, Exception exception);
+
+        /// <inheritdoc cref="SendToDeadLetterQueueAsync{TKey,TValue}(Confluent.Kafka.ConsumeResult{TKey,TValue},System.Exception)" />
+        Task<KafkaResult> SendToDeadLetterQueueAsync<TKey, TValue>(ConsumeResult<TKey, TValue> originalMessage, Exception exception, CancellationToken ct);
+
+        /// <inheritdoc cref="SendToDeadLetterQueueAsync{TKey,TValue}(Confluent.Kafka.ConsumeResult{TKey,TValue},System.Exception)" />
+        Task<KafkaResult> SendToDeadLetterQueueAsync<TKey, TValue>(ConsumeResult<TKey, TValue> originalMessage, Exception exception, int retryCount);
+
+        /// <inheritdoc cref="SendToDeadLetterQueueAsync{TKey,TValue}(Confluent.Kafka.ConsumeResult{TKey,TValue},System.Exception)" />
+        Task<KafkaResult> SendToDeadLetterQueueAsync<TKey, TValue>(ConsumeResult<TKey, TValue> originalMessage, Exception exception, int retryCount, CancellationToken ct);
+
+        /// <summary>
+        /// Sends a failed message to the dead letter queue, allowing full control over retry metadata and target producer configuration.
         /// </summary>
         /// <typeparam name="TKey">Type of the message key.</typeparam>
         /// <typeparam name="TValue">Type of the message value.</typeparam>
@@ -71,9 +99,9 @@ namespace JohBloch.ConfluentKafka.Clients.Interfaces
         Task<KafkaResult> SendToDeadLetterQueueAsync<TKey, TValue>(
             ConsumeResult<TKey, TValue> originalMessage,
             Exception exception,
-            int retryCount = 0,
-            string producerKey = "default",
-            Dictionary<string, string>? additionalMetadata = null,
-            CancellationToken ct = default);
+            int retryCount,
+            string producerKey,
+            Dictionary<string, string>? additionalMetadata,
+            CancellationToken ct);
     }
 }

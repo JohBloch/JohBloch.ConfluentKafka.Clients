@@ -9,12 +9,18 @@ namespace JohBloch.ConfluentKafka.Clients.Services.Serialization.Avro
         private readonly ISchemaRegistryClient _schemaRegistry;
         private readonly ILogger<AvroDeserializer<T>> _logger;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="AvroDeserializer{T}"/> class.
+        /// </summary>
+        /// <param name="schemaRegistry">Schema Registry client.</param>
+        /// <param name="logger">Logger instance.</param>
         public AvroDeserializer(ISchemaRegistryClient schemaRegistry, ILogger<AvroDeserializer<T>> logger)
         {
             _schemaRegistry = schemaRegistry ?? throw new ArgumentNullException(nameof(schemaRegistry));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
+        /// <inheritdoc />
         public async Task<T> DeserializeAsync(byte[] data, SerializationContext context)
         {
             try

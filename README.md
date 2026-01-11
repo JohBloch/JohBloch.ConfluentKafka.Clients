@@ -171,14 +171,59 @@ public class KafkaConsumerOptions
 
 ## Documentation
 
-- [Dead Letter Queue Guide](docs/DeadLetterQueue.md)
-- [Protobuf POCO Support](docs/ProtobufNetExample.md)
+### Getting Started Guides
+
+- 📘 [Avro Serialization Example](docs/AvroExample.md) - Complete guide for Avro with schema evolution
+- 📗 [JSON Serialization Example](docs/JsonExample.md) - JSON serialization with System.Text.Json
+- 📕 [Protobuf POCO Support](docs/ProtobufNetExample.md) - Using protobuf-net with POCOs
+
+### Authentication & Security
+
+- 🔐 [OAuth Authentication Example](docs/OAuthExample.md) - OAuth/OIDC for Azure AD, Okta, Keycloak
+- 🔑 [API Key Authentication Example](docs/ApiKeyExample.md) - API keys for Confluent Cloud, AWS MSK, Azure Event Hubs
+
+### Advanced Patterns
+
+- 🔄 [Multi-Topic Example](docs/MultiTopicExample.md) - Order processing with retry logic and DLQ
+- ⚡ [Batch Processing Example](docs/BatchExample.md) - High-throughput batch producer and consumer
+- 📬 [Dead Letter Queue Guide](docs/DeadLetterQueue.md) - DLQ patterns and best practices
+
+### Project Documentation
+
 - [Contributing Guidelines](CONTRIBUTING.md)
 - [Security Policy](SECURITY.md)
+- [Code of Conduct](CODE_OF_CONDUCT.md)
+- [Changelog](CHANGELOG.md)
+- [API Stability](docs/ApiStability.md)
 
 ## Requirements
 
 - .NET 8.0 or later
+
+## Local Development (Docker)
+
+This repo includes a minimal local stack for running the example app:
+
+- Kafka broker: `localhost:9092` (PLAINTEXT)
+- Schema Registry: `http://localhost:8081`
+
+Start the stack:
+
+```bash
+docker compose up -d
+```
+
+Run the example:
+
+```bash
+dotnet run --project examples/JohBloch.ConfluentKafka.Clients.Example/JohBloch.ConfluentKafka.Clients.Example.csproj
+```
+
+Stop the stack:
+
+```bash
+docker compose down -v
+```
 - Apache Kafka 2.0+
 - Confluent Schema Registry (optional, for schema support)
 

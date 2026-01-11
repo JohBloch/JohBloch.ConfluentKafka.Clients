@@ -176,3 +176,11 @@ dotnet_naming_style.pascal_case.required_prefix =
 dotnet_naming_style.pascal_case.required_suffix = 
 dotnet_naming_style.pascal_case.word_separator = 
 dotnet_naming_style.pascal_case.capitalization = pascal_case
+
+# Public API analyzers (API stability)
+dotnet_diagnostic.RS0016.severity = error
+dotnet_diagnostic.RS0017.severity = error
+dotnet_diagnostic.RS0018.severity = error
+dotnet_diagnostic.RS0026.severity = error
+dotnet_diagnostic.RS0036.severity = error
+dotnet_diagnostic.RS0037.severity = error

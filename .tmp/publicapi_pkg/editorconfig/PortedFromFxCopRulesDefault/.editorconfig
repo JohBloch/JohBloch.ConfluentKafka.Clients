@@ -1,0 +1,82 @@
+# NOTE: Requires **VS2019 16.3** or later
+
+# PortedFromFxCop Rules with default severity
+# Description: All PortedFromFxCop Rules with default severity. Rules with IsEnabledByDefault = false and non-PortedFromFxCop rules are disabled.
+
+# Code files
+[*.{cs,vb}]
+
+# PortedFromFxCop Rules
+
+
+
+# Other Rules
+
+# RS0016: Add public types and members to the declared API
+dotnet_diagnostic.RS0016.severity = none
+
+# RS0017: Remove deleted types and members from the declared API
+dotnet_diagnostic.RS0017.severity = none
+
+# RS0022: Constructor make noninheritable base class inheritable
+dotnet_diagnostic.RS0022.severity = none
+
+# RS0024: The contents of the public API files are invalid
+dotnet_diagnostic.RS0024.severity = none
+
+# RS0025: Do not duplicate symbols in public API files
+dotnet_diagnostic.RS0025.severity = none
+
+# RS0026: Do not add multiple public overloads with optional parameters
+dotnet_diagnostic.RS0026.severity = none
+
+# RS0027: API with optional parameter(s) should have the most parameters amongst its public overloads
+dotnet_diagnostic.RS0027.severity = none
+
+# RS0036: Annotate nullability of public types and members in the declared API
+dotnet_diagnostic.RS0036.severity = none
+
+# RS0037: Enable tracking of nullability of reference types in the declared API
+dotnet_diagnostic.RS0037.severity = none
+
+# RS0041: Public members should not use oblivious types
+dotnet_diagnostic.RS0041.severity = none
+
+# RS0048: Missing shipped or unshipped public API file
+dotnet_diagnostic.RS0048.severity = none
+
+# RS0050: API is marked as removed but it exists in source code
+dotnet_diagnostic.RS0050.severity = none
+
+# RS0051: Add internal types and members to the declared API
+dotnet_diagnostic.RS0051.severity = none
+
+# RS0052: Remove deleted types and members from the declared internal API
+dotnet_diagnostic.RS0052.severity = none
+
+# RS0053: The contents of the internal API files are invalid
+dotnet_diagnostic.RS0053.severity = none
+
+# RS0054: Do not duplicate symbols in internal API files
+dotnet_diagnostic.RS0054.severity = none
+
+# RS0055: Annotate nullability of internal types and members in the declared API
+dotnet_diagnostic.RS0055.severity = none
+
+# RS0056: Enable tracking of nullability of reference types in the declared API
+dotnet_diagnostic.RS0056.severity = none
+
+# RS0057: Internal members should not use oblivious types
+dotnet_diagnostic.RS0057.severity = none
+
+# RS0058: Missing shipped or unshipped internal API file
+dotnet_diagnostic.RS0058.severity = none
+
+# RS0059: Do not add multiple public overloads with optional parameters
+dotnet_diagnostic.RS0059.severity = none
+
+# RS0060: API with optional parameter(s) should have the most parameters amongst its public overloads
+dotnet_diagnostic.RS0060.severity = none
+
+# RS0061: Constructor make noninheritable base class inheritable
+dotnet_diagnostic.RS0061.severity = none

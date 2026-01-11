@@ -1,4 +1,5 @@
 using JohBloch.ConfluentKafka.Clients.Services.Serialization;
+using System.ComponentModel;
 
 namespace JohBloch.ConfluentKafka.Clients.Services
 {
@@ -6,6 +7,7 @@ namespace JohBloch.ConfluentKafka.Clients.Services
     /// Kafka consumer client for consuming messages from Kafka topics.
     /// Supports both GenericRecord and SpecificRecord handling.
     /// </summary>
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public class KafkaConsumerClient : IKafkaConsumerClient, IDisposable
     {
         private readonly ILogger<KafkaConsumerClient> _logger;
@@ -27,17 +29,48 @@ namespace JohBloch.ConfluentKafka.Clients.Services
             IOptions<SchemaRegistryOptions> schemaRegistryOptions,
             ISecurityTokenProvider securityProvider,
             ISchemaRegistryFactory schemaRegistryFactory,
-            ILogger<KafkaConsumerClient> logger,
-            IDictionary<string, string>? globalConfig = null,
-            IDictionary<string, string>? consumerOverrides = null)
+            ILogger<KafkaConsumerClient> logger)
+            : this(
+                kafkaConsumerOptions,
+                schemaRegistryOptions,
+                securityProvider,
+                schemaRegistryFactory,
+                logger,
+                globalConfig: null,
+                consumerOverrides: null)
         {
-            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-            _kafkaConsumerOpts = kafkaConsumerOptions?.Value ?? throw new ArgumentNullException(nameof(kafkaConsumerOptions));
-            _srOpts = schemaRegistryOptions?.Value ?? throw new ArgumentNullException(nameof(schemaRegistryOptions));
-            _securityProvider = securityProvider ?? throw new ArgumentNullException(nameof(securityProvider));
+        }
 
-            _schemaRegistry = schemaRegistryFactory?.CreateClient()
-                ?? throw new ArgumentNullException(nameof(schemaRegistryFactory));
+        /// <summary>
+        /// Initializes a new instance of the <see cref="KafkaConsumerClient"/> class.
+        /// </summary>
+        /// <param name="kafkaConsumerOptions">Consumer options.</param>
+        /// <param name="schemaRegistryOptions">Schema Registry options.</param>
+        /// <param name="securityProvider">Security token provider.</param>
+        /// <param name="schemaRegistryFactory">Schema Registry client factory.</param>
+        /// <param name="logger">Logger instance.</param>
+        /// <param name="globalConfig">Optional global configuration settings applied to the consumer.</param>
+        /// <param name="consumerOverrides">Optional per-consumer configuration overrides.</param>
+        public KafkaConsumerClient(
+            IOptions<KafkaConsumerOptions> kafkaConsumerOptions,
+            IOptions<SchemaRegistryOptions> schemaRegistryOptions,
+            ISecurityTokenProvider securityProvider,
+            ISchemaRegistryFactory schemaRegistryFactory,
+            ILogger<KafkaConsumerClient> logger,
+            IDictionary<string, string>? globalConfig,
+            IDictionary<string, string>? consumerOverrides)
+        {
+            ArgumentNullException.ThrowIfNull(logger);
+            ArgumentNullException.ThrowIfNull(kafkaConsumerOptions);
+            ArgumentNullException.ThrowIfNull(schemaRegistryOptions);
+            ArgumentNullException.ThrowIfNull(securityProvider);
+            ArgumentNullException.ThrowIfNull(schemaRegistryFactory);
+            
+            _logger = logger;
+            _kafkaConsumerOpts = kafkaConsumerOptions.Value;
+            _srOpts = schemaRegistryOptions.Value;
+            _securityProvider = securityProvider;
+            _schemaRegistry = schemaRegistryFactory.CreateClient();
 
             // Initialize deserializer factory
             var loggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
@@ -66,8 +99,36 @@ namespace JohBloch.ConfluentKafka.Clients.Services
         /// <param name="securityProvider">Security token provider.</param>
         /// <param name="schemaRegistryFactory">Schema Registry client factory.</param>
         /// <param name="logger">Logger instance.</param>
-        /// <param name="globalConfig">Optional global configuration settings.</param>
-        /// <param name="perConsumerConfigs">Optional per-consumer configuration overrides.</param>
+        public KafkaConsumerClient(
+            IDictionary<string, KafkaConsumerOptions> consumerOptions,
+            string consumerKey,
+            IOptions<SchemaRegistryOptions> schemaRegistryOptions,
+            ISecurityTokenProvider securityProvider,
+            ISchemaRegistryFactory schemaRegistryFactory,
+            ILogger<KafkaConsumerClient> logger)
+            : this(
+                consumerOptions,
+                consumerKey,
+                schemaRegistryOptions,
+                securityProvider,
+                schemaRegistryFactory,
+                logger,
+                globalConfig: null,
+                perConsumerConfigs: null)
+        {
+        }
+
+            /// <summary>
+            /// Initializes a new instance of the <see cref="KafkaConsumerClient"/> class using a dictionary of consumer options keyed by logical consumer name.
+            /// </summary>
+            /// <param name="consumerOptions">Consumer options keyed by logical consumer name.</param>
+            /// <param name="consumerKey">The logical consumer key to select options from the dictionary.</param>
+            /// <param name="schemaRegistryOptions">Schema Registry options.</param>
+            /// <param name="securityProvider">Security token provider.</param>
+            /// <param name="schemaRegistryFactory">Schema Registry client factory.</param>
+            /// <param name="logger">Logger instance.</param>
+            /// <param name="globalConfig">Optional global configuration settings applied to the consumer.</param>
+            /// <param name="perConsumerConfigs">Optional per-consumer configuration overrides keyed by consumer key.</param>
         public KafkaConsumerClient(
             IDictionary<string, KafkaConsumerOptions> consumerOptions,
             string consumerKey,
@@ -75,8 +136,8 @@ namespace JohBloch.ConfluentKafka.Clients.Services
             ISecurityTokenProvider securityProvider,
             ISchemaRegistryFactory schemaRegistryFactory,
             ILogger<KafkaConsumerClient> logger,
-            IDictionary<string, string>? globalConfig = null,
-            IDictionary<string, IDictionary<string, string>>? perConsumerConfigs = null)
+            IDictionary<string, string>? globalConfig,
+            IDictionary<string, IDictionary<string, string>>? perConsumerConfigs)
         {
             if (consumerOptions == null) throw new ArgumentNullException(nameof(consumerOptions));
             if (string.IsNullOrWhiteSpace(consumerKey)) throw new ArgumentNullException(nameof(consumerKey));
@@ -140,8 +201,12 @@ namespace JohBloch.ConfluentKafka.Clients.Services
                 })
                 .SetStatisticsHandler((_, json) => { })
                 .SetPartitionsAssignedHandler((_, partitions) => { })
-                .SetPartitionsRevokedHandler((_, partitions) => { })
-                .SetOAuthBearerTokenRefreshHandler(async (consumer, _) =>
+                .SetPartitionsRevokedHandler((_, partitions) => { });
+
+            // Only attach OAuth refresh handler when OAuth is explicitly enabled.
+            if (config.SaslMechanism == SaslMechanism.OAuthBearer)
+            {
+                consumerBuilder.SetOAuthBearerTokenRefreshHandler(async (consumer, _) =>
                 {
                     try
                     {
@@ -156,6 +221,7 @@ namespace JohBloch.ConfluentKafka.Clients.Services
                         consumer.OAuthBearerSetTokenFailure($"Token refresh failed: {ex.Message}");
                     }
                 });
+            }
 
             return consumerBuilder.Build();
         }
@@ -181,28 +247,9 @@ namespace JohBloch.ConfluentKafka.Clients.Services
                 Debug = "cgrp,consumer,fetch,topic,protocol,broker,security"
             };
 
-            // Apply optional global configs
-            if (_globalConfig is not null)
-            {
-                foreach (var kvp in _globalConfig)
-                {
-                    if (!string.IsNullOrWhiteSpace(kvp.Value))
-                    {
-                        config.Set(kvp.Key, kvp.Value);
-                    }
-                }
-            }
-            // Apply optional per-consumer overrides
-            if (_consumerOverrides is not null)
-            {
-                foreach (var kvp in _consumerOverrides)
-                {
-                    if (!string.IsNullOrWhiteSpace(kvp.Value))
-                    {
-                        config.Set(kvp.Key, kvp.Value);
-                    }
-                }
-            }
+            // Apply optional global configs and per-consumer overrides
+            KafkaProducerClient.KafkaConfigHelper.ApplyConfigDictionary(config, _globalConfig);
+            KafkaProducerClient.KafkaConfigHelper.ApplyConfigDictionary(config, _consumerOverrides);
 
             // Optional: let SAL provide additional SASL configs if necessary
             var salConfig = _securityProvider.GetKafkaSaslConfig();
@@ -210,12 +257,9 @@ namespace JohBloch.ConfluentKafka.Clients.Services
             {
                 // If SAL provides SASL settings, switch protocol to SaslSsl and apply values
                 // Expectation: SAL includes keys like 'sasl.mechanism', 'sasl.oauthbearer.method', and token endpoint url when using OIDC
-                config.SecurityProtocol = SecurityProtocol.Ssl; // or SaslSsl depending on cluster setup
+                config.SecurityProtocol = SecurityProtocol.SaslSsl;
 
-                foreach (var kv in salConfig)
-                {
-                    config.Set(kv.Key, kv.Value);
-                }
+                KafkaProducerClient.KafkaConfigHelper.ApplyConfigDictionary(config, salConfig);
 
                 // If SAL did not explicitly set mechanism/method, do not force OIDC
                 // Only set OAuth/OIDC when required keys exist

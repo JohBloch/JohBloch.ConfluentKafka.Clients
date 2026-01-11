@@ -8,7 +8,8 @@
     
     <!-- NuGet Package Metadata -->
     <PackageId>JohBloch.ConfluentKafka.Clients</PackageId>
-    <Version>1.0.0</Version>
+    <!-- Version is calculated from Git tags via MinVer (e.g. v1.2.3) -->
+    <MinVerTagPrefix>v</MinVerTagPrefix>
     <Authors>JohBloch</Authors>
     <Company>JohBloch</Company>
     <Description>A high-performance Kafka client library for .NET with support for Avro, JSON, and Protobuf schema serialization, built-in dead letter queue (DLQ) handling, and OAuth authentication.</Description>
@@ -20,6 +21,23 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <Copyright>Copyright © 2026 JohBloch</Copyright>
     <PackageReleaseNotes>Initial release with Avro, JSON, and Protobuf support, DLQ functionality, and OAuth authentication.</PackageReleaseNotes>
+    
+    <!-- Source Link & Symbols -->
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+
+    <!-- API stability (Public API analyzers) -->
+    <!--
+      PublicApiAnalyzers ships rule configuration as globalconfig files keyed by
+      a "rules version" (e.g. 4.3). Without selecting one, the package tries to
+      map from $(AnalysisLevelSuffix) (e.g. 8) which does not exist in this package,
+      leaving most rules effectively disabled.
+    -->
+    <MicrosoftCodeAnalysisPublicApiAnalyzersRulesVersion>4.3</MicrosoftCodeAnalysisPublicApiAnalyzersRulesVersion>
+    <MicrosoftCodeAnalysisPublicApiAnalyzersApiDesignRulesVersion>4.3</MicrosoftCodeAnalysisPublicApiAnalyzersApiDesignRulesVersion>
+    <WarningsAsErrors>$(WarningsAsErrors);RS0016;RS0017;RS0018;RS0026</WarningsAsErrors>
   </PropertyGroup>
   
   <ItemGroup>
@@ -30,6 +48,10 @@
     <PackageReference Include="Chr.Avro.Confluent" Version="10.12.0" />
     <PackageReference Include="Confluent.Kafka" Version="2.13.0" />
     <PackageReference Include="Confluent.SchemaRegistry" Version="2.13.0" />
+    <PackageReference Include="MinVer" Version="6.0.0" PrivateAssets="All" />
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All" />
+    <PackageReference Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" Version="3.3.4" PrivateAssets="All" />
+    <PackageReference Include="Microsoft.Extensions.Http" Version="9.0.0" />
     <PackageReference Include="protobuf-net" Version="3.2.30" />
     <PackageReference Include="Microsoft.Extensions.Logging" Version="9.0.0" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.0" />

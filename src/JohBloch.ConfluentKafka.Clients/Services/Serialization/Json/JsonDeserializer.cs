@@ -28,27 +28,12 @@ namespace JohBloch.ConfluentKafka.Clients.Services.Serialization.Json
         }
 
         /// <inheritdoc />
-        public async Task<T> DeserializeAsync(byte[] data, SerializationContext context)
+        public Task<T> DeserializeAsync(byte[] data, SerializationContext context)
         {
             try
             {
-                // JSON wire format with Schema Registry:
-                // Byte 0: Magic byte (0x00)
-                // Bytes 1-4: Schema ID (big-endian)
-                // Bytes 5+: JSON data
-                
-                byte[] jsonData;
-                
-                if (data.Length >= 5 && data[0] == 0x00)
-                {
-                    // Schema Registry format - skip magic byte and schema ID
-                    jsonData = data[5..];
-                }
-                else
-                {
-                    // Plain JSON without Schema Registry
-                    jsonData = data;
-                }
+                // Extract JSON payload, handling Schema Registry wire format if present
+                var jsonData = SchemaRegistryWireFormat.ExtractPayload(data);
 
                 var json = System.Text.Encoding.UTF8.GetString(jsonData);
                 var result = System.Text.Json.JsonSerializer.Deserialize<T>(json, _jsonOptions);
@@ -58,7 +43,7 @@ namespace JohBloch.ConfluentKafka.Clients.Services.Serialization.Json
                     throw new InvalidDataException("Deserialized JSON result is null");
                 }
                 
-                return result;
+                return Task.FromResult(result);
             }
             catch (Exception ex)
             {
