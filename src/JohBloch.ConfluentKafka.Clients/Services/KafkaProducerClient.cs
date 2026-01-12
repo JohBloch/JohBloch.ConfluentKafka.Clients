@@ -39,6 +39,7 @@ namespace JohBloch.ConfluentKafka.Clients.Services
             ArgumentNullException.ThrowIfNull(logger);
             ArgumentNullException.ThrowIfNull(securityTokenProvider);
             ArgumentNullException.ThrowIfNull(schemaRegistryFactory);
+            ArgumentNullException.ThrowIfNull(producerOptions);
             
             _logger = logger;
             _producerOptions = new Dictionary<string, KafkaProducerOptions>(producerOptions);
@@ -50,6 +51,58 @@ namespace JohBloch.ConfluentKafka.Clients.Services
             // Initialize SerializerFactory
             var loggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
             _serializerFactory = new SerializerFactory(_schemaRegistry, loggerFactory);
+
+            ValidateAutoDlqConfiguration();
+        }
+
+        private void ValidateAutoDlqConfiguration()
+        {
+            foreach (var kvp in _producerOptions)
+            {
+                var producerKey = kvp.Key;
+                var opts = kvp.Value;
+
+                // Only validate user-defined producers; DLQ producers are derived.
+                if (producerKey.StartsWith("_dlq_", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                if (!opts.AutoDlqOnDeliveryFailure)
+                {
+                    continue;
+                }
+
+                if (string.IsNullOrWhiteSpace(opts.Topic))
+                {
+                    throw new InvalidOperationException($"AutoDlqOnDeliveryFailure is enabled for producer '{producerKey}', but Topic is not configured.");
+                }
+
+                if (string.IsNullOrWhiteSpace(opts.DeadLetterQueueTopicPattern))
+                {
+                    throw new InvalidOperationException($"AutoDlqOnDeliveryFailure is enabled for producer '{producerKey}', but DeadLetterQueueTopicPattern is not configured.");
+                }
+
+                var dlqTopic = opts.DeadLetterQueueTopicPattern.Replace("{topic}", opts.Topic);
+                if (string.IsNullOrWhiteSpace(dlqTopic))
+                {
+                    throw new InvalidOperationException($"AutoDlqOnDeliveryFailure is enabled for producer '{producerKey}', but DLQ topic resolved to an empty value.");
+                }
+
+                var dlqProducerKey = $"_dlq_{producerKey}";
+                if (!_producerOptions.TryGetValue(dlqProducerKey, out var dlqOpts))
+                {
+                    throw new InvalidOperationException(
+                        $"AutoDlqOnDeliveryFailure is enabled for producer '{producerKey}', but the DLQ producer '{dlqProducerKey}' is not configured in the producer options dictionary. " +
+                        $"Add a producer entry with key '{dlqProducerKey}' and Topic='{dlqTopic}'.");
+                }
+
+                if (!string.Equals(dlqOpts.Topic, dlqTopic, StringComparison.Ordinal))
+                {
+                    throw new InvalidOperationException(
+                        $"AutoDlqOnDeliveryFailure is enabled for producer '{producerKey}', but the configured DLQ producer '{dlqProducerKey}' has Topic='{dlqOpts.Topic}', expected '{dlqTopic}'.");
+                }
+            }
         }
 
         private IProducer<string, TValue> CreateProducer<TValue>(string producerKey, bool batchOptimized, ISerializer<TValue>? serializer = null)
@@ -257,8 +310,17 @@ namespace JohBloch.ConfluentKafka.Clients.Services
         {
             var producer = GetProducer<T>(producerKey, batchOptimized: false, serializer: serializer);
             var topic = _producerOptions[producerKey].Topic;
-            return await ProduceMessageAsync(producer, message, key, topic, headers, ct);
+            return await ProduceMessageAsync(producer, message, key, topic, headers, producerKey, ct);
         }
+
+        Task<KafkaResult> IKafkaProducerClient.ProduceAsync<T>(
+            T message,
+            string key,
+            string producerKey,
+            Headers? headers,
+            ISerializer<T>? serializer,
+            CancellationToken ct)
+            => SendMessageAsync(message, key, producerKey, headers, serializer, ct);
 
         /// <summary>
         /// Sends a single message to Kafka using a specific schema type.
@@ -290,6 +352,7 @@ namespace JohBloch.ConfluentKafka.Clients.Services
             string key,
             string topic,
             Headers? headers,
+            string producerKey,
             CancellationToken ct)
         {
             try
@@ -308,13 +371,128 @@ namespace JohBloch.ConfluentKafka.Clients.Services
             catch (ProduceException<string, T> ex)
             {
                 _logger.LogError(ex, "Produce failed: {reason}", ex.Error.Reason);
-                return new KafkaResult(false, errorMessage: ex.Error.Reason);
+                var result = new KafkaResult(false, topic: topic, key: key, errorMessage: ex.Error.Reason);
+                await ApplyAutoDlqOnDeliveryFailureAsync(result, message, key, topic, headers, producerKey, ex, ct);
+                return result;
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "SendMessageAsync failed");
-                return new KafkaResult(false, errorMessage: ex.Message);
+                var result = new KafkaResult(false, topic: topic, key: key, errorMessage: ex.Message);
+                await ApplyAutoDlqOnDeliveryFailureAsync(result, message, key, topic, headers, producerKey, ex, ct);
+                return result;
             }
+        }
+
+        private async Task ApplyAutoDlqOnDeliveryFailureAsync<T>(
+            KafkaResult result,
+            T originalMessage,
+            string key,
+            string originalTopic,
+            Headers? headers,
+            string producerKey,
+            Exception exception,
+            CancellationToken ct)
+        {
+            if (result is null)
+            {
+                throw new ArgumentNullException(nameof(result));
+            }
+
+            if (!_producerOptions.TryGetValue(producerKey, out var options))
+            {
+                return;
+            }
+
+            if (!options.AutoDlqOnDeliveryFailure)
+            {
+                return;
+            }
+
+            result.DlqAttempted = true;
+
+            var errorMessage = exception is ProduceException<string, T> pex ? pex.Error.Reason : exception.Message;
+
+            var dlqMessage = new Models.DeadLetterMessage
+            {
+                OriginalTopic = originalTopic,
+                Partition = -1,
+                Offset = -1,
+                FailedAt = DateTime.UtcNow,
+                ErrorMessage = errorMessage,
+                ErrorType = exception.GetType().Name,
+                StackTrace = options.IncludeStackTraceInDlq ? exception.StackTrace : null,
+                RetryCount = 0,
+                OriginalKey = key,
+                ApplicationName = options.ApplicationId,
+                Hostname = Environment.MachineName,
+                OriginalValueBase64 = SerializeValueToBase64(originalMessage),
+                Headers = ExtractHeaders(headers)
+            };
+
+            try
+            {
+                var dlqResult = await SendToConfiguredDeadLetterQueueAsync(dlqMessage, key: key, producerKey: producerKey, ct: ct);
+                result.DlqSuccess = dlqResult.Success;
+                result.DlqTopic = dlqResult.Topic;
+                result.DlqPartition = dlqResult.Partition;
+                result.DlqOffset = dlqResult.Offset;
+                if (!dlqResult.Success)
+                {
+                    result.DlqErrorMessage = dlqResult.ErrorMessage;
+                }
+            }
+            catch (Exception dlqEx)
+            {
+                _logger.LogError(dlqEx, "Auto-DLQ failed (producerKey={ProducerKey}, originalTopic={Topic})", producerKey, originalTopic);
+                result.DlqSuccess = false;
+                result.DlqErrorMessage = dlqEx.Message;
+            }
+        }
+
+        private async Task<KafkaResult> SendToConfiguredDeadLetterQueueAsync(
+            Models.DeadLetterMessage dlqMessage,
+            string? key,
+            string producerKey,
+            CancellationToken ct)
+        {
+            if (dlqMessage == null) throw new ArgumentNullException(nameof(dlqMessage));
+            if (!_producerOptions.TryGetValue(producerKey, out var options))
+                throw new ArgumentException($"Producer key '{producerKey}' not found in configuration", nameof(producerKey));
+
+            var dlqTopic = options.DeadLetterQueueTopicPattern.Replace("{topic}", dlqMessage.OriginalTopic);
+            if (string.IsNullOrWhiteSpace(dlqTopic))
+            {
+                throw new InvalidOperationException($"DLQ topic resolved to empty for producer '{producerKey}'.");
+            }
+
+            if (string.IsNullOrEmpty(dlqMessage.Hostname))
+            {
+                dlqMessage.Hostname = Environment.MachineName;
+            }
+
+            var messageKey = key ?? dlqMessage.OriginalKey ?? dlqMessage.OriginalTopic;
+
+            var dlqProducerKey = $"_dlq_{producerKey}";
+            if (!_producerOptions.TryGetValue(dlqProducerKey, out var dlqOpts))
+            {
+                throw new InvalidOperationException(
+                    $"AutoDlqOnDeliveryFailure requires DLQ producer '{dlqProducerKey}' to be configured (missing). Expected Topic='{dlqTopic}'.");
+            }
+
+            if (!string.Equals(dlqOpts.Topic, dlqTopic, StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException(
+                    $"AutoDlqOnDeliveryFailure requires DLQ producer '{dlqProducerKey}' to have Topic='{dlqTopic}', but found '{dlqOpts.Topic}'.");
+            }
+
+            return await SendMessageWithSchemaAsync(
+                message: dlqMessage,
+                key: messageKey,
+                producerKey: dlqProducerKey,
+                schemaType: Models.SchemaType.Json,
+                headers: null,
+                ct: ct);
         }
 
         /// <summary>
@@ -351,9 +529,9 @@ namespace JohBloch.ConfluentKafka.Clients.Services
 
             _logger.LogInformation("Starting batch {batchId} with {count} messages (timeout 60s)", batchId, result.TotalMessages);
 
-            var tasks = PrepareBatchTasks(producer, messages, keySelector, headers, batchId, topic, produceToken);
+            var workItems = PrepareBatchTasks(producer, messages, keySelector, headers, batchId, topic, produceToken);
 
-            await ProcessBatchTasks(tasks, result, batchId, produceToken);
+            await ProcessBatchTasks(workItems, result, batchId, topic, producerKey, produceToken);
 
             try
             {
@@ -368,7 +546,32 @@ namespace JohBloch.ConfluentKafka.Clients.Services
             return result;
         }
 
-        private IEnumerable<Task<DeliveryResult<string, T>>> PrepareBatchTasks<T>(
+        Task<BatchResult> IKafkaProducerClient.ProduceAsync<T>(
+            IEnumerable<T> messages,
+            Func<T, string> keySelector,
+            string producerKey,
+            Headers? headers,
+            ISerializer<T>? serializer,
+            CancellationToken ct)
+            => SendBatchAsync(messages, keySelector, producerKey, headers, serializer, ct);
+
+        private sealed class BatchProduceWorkItem<T>
+        {
+            public BatchProduceWorkItem(string key, T message, Headers headers, Task<DeliveryResult<string, T>> task)
+            {
+                Key = key;
+                Message = message;
+                Headers = headers;
+                Task = task;
+            }
+
+            public string Key { get; }
+            public T Message { get; }
+            public Headers Headers { get; }
+            public Task<DeliveryResult<string, T>> Task { get; }
+        }
+
+        private IEnumerable<BatchProduceWorkItem<T>> PrepareBatchTasks<T>(
             IProducer<string, T> producer,
             IEnumerable<T> messages,
             Func<T, string> keySelector,
@@ -385,45 +588,55 @@ namespace JohBloch.ConfluentKafka.Clients.Services
             {
                 var key = keySelector(m);
                 _logger.LogDebug("Queue produce (batch {batchId}) msgIndex={index} key={key}", batchId, index++, key);
-                return producer.ProduceAsync(topic,
+                var task = producer.ProduceAsync(topic,
                     new Message<string, T>
                     {
                         Key = key,
                         Value = m,
                         Headers = hdr
                     }, ct);
+
+                return new BatchProduceWorkItem<T>(key, m, hdr, task);
             });
         }
 
         private async Task ProcessBatchTasks<T>(
-            IEnumerable<Task<DeliveryResult<string, T>>> tasks,
+            IEnumerable<BatchProduceWorkItem<T>> workItems,
             BatchResult result,
             string batchId,
+            string topic,
+            string producerKey,
             CancellationToken ct)
         {
             int i = 0;
-            foreach (var task in tasks)
+            foreach (var item in workItems)
             {
                 try
                 {
-                    var deliveryResult = await task;
+                    var deliveryResult = await item.Task;
                     result.AddSuccess(deliveryResult.Topic, deliveryResult.Partition.Value, deliveryResult.Offset.Value, deliveryResult.Key);
                     _logger.LogDebug("Delivered (batch {batchId}) msgIndex={index} key={key} part={part} offset={offset}", batchId, i, deliveryResult.Key, deliveryResult.Partition.Value, deliveryResult.Offset.Value);
                 }
                 catch (TaskCanceledException tce)
                 {
                     _logger.LogWarning(tce, "Produce canceled (batch {batchId}) msgIndex={index} tokenCanceled={tokenCanceled}", batchId, i, ct.IsCancellationRequested);
-                    result.AddFailure("canceled");
+                    var r = new KafkaResult(false, topic: topic, key: item.Key, errorMessage: "canceled");
+                    await ApplyAutoDlqOnDeliveryFailureAsync(r, item.Message, item.Key, topic, item.Headers, producerKey, tce, ct);
+                    result.AddResult(r);
                 }
                 catch (ProduceException<string, T> pex)
                 {
                     _logger.LogError(pex, "Produce failed in batch {id}: {reason}", batchId, pex.Error.Reason);
-                    result.AddFailure(pex.Error.Reason);
+                    var r = new KafkaResult(false, topic: topic, key: item.Key, errorMessage: pex.Error.Reason);
+                    await ApplyAutoDlqOnDeliveryFailureAsync(r, item.Message, item.Key, topic, item.Headers, producerKey, pex, ct);
+                    result.AddResult(r);
                 }
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Produce failed in batch {id}: {reason}", batchId, ex.Message);
-                    result.AddFailure(ex.Message);
+                    var r = new KafkaResult(false, topic: topic, key: item.Key, errorMessage: ex.Message);
+                    await ApplyAutoDlqOnDeliveryFailureAsync(r, item.Message, item.Key, topic, item.Headers, producerKey, ex, ct);
+                    result.AddResult(r);
                 }
                 i++;
             }

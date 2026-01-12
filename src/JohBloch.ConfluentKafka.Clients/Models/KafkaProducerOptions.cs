@@ -20,6 +20,12 @@ public sealed class KafkaProducerOptions
     /// <summary>Whether to include stack trace in DLQ messages (can be large).</summary>
     public bool IncludeStackTraceInDlq { get; set; } = false;
 
+    /// <summary>
+    /// When enabled, delivery failures will automatically produce a Dead Letter message to the configured DLQ topic.
+    /// The original send will still be reported as a failure, but the returned result will include DLQ status.
+    /// </summary>
+    public bool AutoDlqOnDeliveryFailure { get; set; } = false;
+
     /// <summary>Batch size in KB.</summary>
     public int BatchSizeKB { get; set; } = 32;
 

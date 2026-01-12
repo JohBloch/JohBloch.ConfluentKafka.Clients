@@ -54,6 +54,79 @@ public class KafkaProducerClientTests
         return new KafkaProducerClient(dict, new FakeTokenProvider(), new FakeSchemaRegistryFactory(), NullLogger<KafkaProducerClient>.Instance);
     }
 
+    [Fact]
+    public void StartupValidation_AutoDlqEnabled_MissingDlqProducer_Throws()
+    {
+        var dict = new Dictionary<string, KafkaProducerOptions>
+        {
+            ["default"] = new KafkaProducerOptions
+            {
+                BootstrapServers = "localhost:9092",
+                ApplicationId = "app-id",
+                Topic = "orders",
+                DeadLetterQueueTopicPattern = "dlq-{topic}",
+                AutoDlqOnDeliveryFailure = true
+            }
+        };
+
+        var ex = Assert.Throws<InvalidOperationException>(() =>
+            new KafkaProducerClient(dict, new FakeTokenProvider(), new FakeSchemaRegistryFactory(), NullLogger<KafkaProducerClient>.Instance));
+
+        Assert.Contains("_dlq_default", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void StartupValidation_AutoDlqEnabled_DlqProducerTopicMismatch_Throws()
+    {
+        var dict = new Dictionary<string, KafkaProducerOptions>
+        {
+            ["default"] = new KafkaProducerOptions
+            {
+                BootstrapServers = "localhost:9092",
+                ApplicationId = "app-id",
+                Topic = "orders",
+                DeadLetterQueueTopicPattern = "dlq-{topic}",
+                AutoDlqOnDeliveryFailure = true
+            },
+            ["_dlq_default"] = new KafkaProducerOptions
+            {
+                BootstrapServers = "localhost:9092",
+                ApplicationId = "app-id",
+                Topic = "dlq-wrong"
+            }
+        };
+
+        var ex = Assert.Throws<InvalidOperationException>(() =>
+            new KafkaProducerClient(dict, new FakeTokenProvider(), new FakeSchemaRegistryFactory(), NullLogger<KafkaProducerClient>.Instance));
+
+        Assert.Contains("_dlq_default", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("expected", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void StartupValidation_AutoDlqEnabled_ConfiguredDlqProducerOk_DoesNotThrow()
+    {
+        var dict = new Dictionary<string, KafkaProducerOptions>
+        {
+            ["default"] = new KafkaProducerOptions
+            {
+                BootstrapServers = "localhost:9092",
+                ApplicationId = "app-id",
+                Topic = "orders",
+                DeadLetterQueueTopicPattern = "dlq-{topic}",
+                AutoDlqOnDeliveryFailure = true
+            },
+            ["_dlq_default"] = new KafkaProducerOptions
+            {
+                BootstrapServers = "localhost:9092",
+                ApplicationId = "app-id",
+                Topic = "dlq-orders"
+            }
+        };
+
+        _ = new KafkaProducerClient(dict, new FakeTokenProvider(), new FakeSchemaRegistryFactory(), NullLogger<KafkaProducerClient>.Instance);
+    }
+
     /// <summary>
     /// SendMessageAsync: success path produces one message and returns KafkaResult with metadata.
     /// </summary>
@@ -74,6 +147,29 @@ public class KafkaProducerClientTests
         };
         SeedProducer(client, "default", false, fake);
         var res = await client.SendMessageAsync(new byte[] { 1, 2 }, key: "k1", producerKey: "default");
+        Assert.True(res.Success);
+        Assert.Equal("topic-1", res.Topic);
+        Assert.Equal("k1", res.Key);
+    }
+
+    [Fact]
+    public async Task ProduceAsync_Single_ForwardsToSendMessage()
+    {
+        IKafkaProducerClient client = CreateProducerClient();
+        var fake = new ConfigurableFakeProducer<byte[]>
+        {
+            OnProduceAsyncExt = (topic, msg, ct) => Task.FromResult(new DeliveryResult<string, byte[]>
+            {
+                Topic = "topic-1",
+                Partition = new Partition(0),
+                Offset = new Offset(1),
+                Message = msg,
+                Key = msg.Key
+            })
+        };
+        SeedProducer((KafkaProducerClient)client, "default", false, fake);
+
+        var res = await client.ProduceAsync(new byte[] { 1, 2 }, key: "k1", producerKey: "default", headers: null, serializer: null, ct: default);
         Assert.True(res.Success);
         Assert.Equal("topic-1", res.Topic);
         Assert.Equal("k1", res.Key);
@@ -387,6 +483,35 @@ public class KafkaProducerClientTests
         Assert.Equal(5, result.FailureCount);
     }
 
+    [Fact]
+    public async Task ProduceAsync_Batch_ForwardsToSendBatch_WithArrayInput()
+    {
+        IKafkaProducerClient client = CreateProducerClient();
+        var producer = new ConfigurableFakeProducer<byte[]>();
+        int i = 0;
+        producer.OnProduceAsync = (msg) =>
+        {
+            i++;
+            return Task.FromResult(new DeliveryResult<string, byte[]>
+            {
+                Topic = "test-topic",
+                Partition = new Partition(0),
+                Offset = new Offset(i),
+                Message = msg,
+                Key = msg.Key
+            });
+        };
+
+        SeedProducer((KafkaProducerClient)client, producerKey: "default", batch: true, producer);
+
+        var payloads = new[] { new byte[] { 1 }, new byte[] { 2 }, new byte[] { 3 } };
+        var res = await client.ProduceAsync(payloads, _ => "k", producerKey: "default", headers: null, serializer: null, ct: default);
+
+        Assert.Equal(payloads.Length, res.TotalMessages);
+        Assert.Equal(payloads.Length, res.SuccessCount);
+        Assert.Equal(0, res.FailureCount);
+    }
+
     /// <summary>
     /// SendBatchAsync large batch exercises state machine branches; returns aggregated counts.
     /// </summary>
@@ -424,7 +549,8 @@ public class KafkaProducerClientTests
             Topic = topic,
             Partition = new Partition(0),
             Offset = new Offset(1),
-            Message = new Message<string, byte[]> { Key = "k1", Value = new byte[] { 1 } }
+            Message = new Message<string, byte[]> { Key = "k1", Value = new byte[] { 1 } },
+            Key = "k1"
         });
         var failure = Task.FromException<DeliveryResult<string, byte[]>>(new ProduceException<string, byte[]>(new Error(ErrorCode.BrokerNotAvailable), new DeliveryResult<string, byte[]>() { Topic = topic }));
         var cts = new CancellationTokenSource(); cts.Cancel();
@@ -433,8 +559,19 @@ public class KafkaProducerClientTests
         var mi = typeof(KafkaProducerClient).GetMethod("ProcessBatchTasks", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
         Assert.NotNull(mi);
         var batch = new BatchResult(3);
-        var tasks = new List<Task<DeliveryResult<string, byte[]>>> { success, failure, canceled };
-        await (Task)mi!.MakeGenericMethod(typeof(byte[])).Invoke(client, new object[] { tasks, batch, "bid", CancellationToken.None })!;
+
+        var wiTypeDef = typeof(KafkaProducerClient).GetNestedType("BatchProduceWorkItem`1", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+        Assert.NotNull(wiTypeDef);
+        var wiType = wiTypeDef!.MakeGenericType(typeof(byte[]));
+        object CreateWorkItem(string key, byte[] msg, Task<DeliveryResult<string, byte[]>> task)
+            => Activator.CreateInstance(wiType, new object[] { key, msg, new Headers(), task })!;
+
+        var workItems = Array.CreateInstance(wiType, 3);
+        workItems.SetValue(CreateWorkItem("k1", new byte[] { 1 }, success), 0);
+        workItems.SetValue(CreateWorkItem("k2", new byte[] { 2 }, failure), 1);
+        workItems.SetValue(CreateWorkItem("k3", new byte[] { 3 }, canceled), 2);
+
+        await (Task)mi!.MakeGenericMethod(typeof(byte[])).Invoke(client, new object[] { workItems, batch, "bid", topic, "default", CancellationToken.None })!;
         Assert.Equal(1, batch.SuccessCount);
         Assert.Equal(2, batch.FailureCount);
     }
@@ -444,7 +581,7 @@ public class KafkaProducerClientTests
         var client = new KafkaProducerClient(new Dictionary<string, KafkaProducerOptions> { { "default", new KafkaProducerOptions { BootstrapServers = "localhost:9092", ApplicationId = "app-id", Topic = topic } } }, new FakeTokenProvider(), new FakeSchemaRegistryFactory(), NullLogger<KafkaProducerClient>.Instance);
         var mi = typeof(KafkaProducerClient).GetMethod("ProduceMessageAsync", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
         Assert.NotNull(mi);
-        var task = (Task<KafkaResult>)mi.MakeGenericMethod(typeof(T)).Invoke(client, new object?[] { prod, value, key, topic, headers, ct })!;
+        var task = (Task<KafkaResult>)mi.MakeGenericMethod(typeof(T)).Invoke(client, new object?[] { prod, value, key, topic, headers, "default", ct })!;
         return await task;
     }
 
@@ -573,17 +710,30 @@ public class KafkaProducerClientTests
             Topic = topic,
             Partition = new Partition(0),
             Offset = new Offset(1),
-            Message = new Message<string, byte[]> { Key = "k1", Value = new byte[] { 1 } }
+            Message = new Message<string, byte[]> { Key = "k1", Value = new byte[] { 1 } },
+            Key = "k1"
         });
         var failure = Task.FromException<DeliveryResult<string, byte[]>>(new ProduceException<string, byte[]>(new Error(ErrorCode.BrokerNotAvailable), new DeliveryResult<string, byte[]>() { Topic = topic }));
         var cts = new CancellationTokenSource(); cts.Cancel();
         var canceled = Task.FromCanceled<DeliveryResult<string, byte[]>>(cts.Token);
         var otherEx = Task.FromException<DeliveryResult<string, byte[]>>(new InvalidOperationException("boom"));
 
-        var tasks = new List<Task<DeliveryResult<string, byte[]>>> { success, failure, canceled, otherEx };
-        var batch = new BatchResult(tasks.Count);
+        var batch = new BatchResult(4);
         var mi = typeof(KafkaProducerClient).GetMethod("ProcessBatchTasks", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
-        await (Task)mi!.MakeGenericMethod(typeof(byte[])).Invoke(client, new object[] { tasks, batch, "bid", CancellationToken.None })!;
+
+        var wiTypeDef = typeof(KafkaProducerClient).GetNestedType("BatchProduceWorkItem`1", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+        Assert.NotNull(wiTypeDef);
+        var wiType = wiTypeDef!.MakeGenericType(typeof(byte[]));
+        object CreateWorkItem(string key, byte[] msg, Task<DeliveryResult<string, byte[]>> task)
+            => Activator.CreateInstance(wiType, new object[] { key, msg, new Headers(), task })!;
+
+        var workItems = Array.CreateInstance(wiType, 4);
+        workItems.SetValue(CreateWorkItem("k1", new byte[] { 1 }, success), 0);
+        workItems.SetValue(CreateWorkItem("k2", new byte[] { 2 }, failure), 1);
+        workItems.SetValue(CreateWorkItem("k3", new byte[] { 3 }, canceled), 2);
+        workItems.SetValue(CreateWorkItem("k4", new byte[] { 4 }, otherEx), 3);
+
+        await (Task)mi!.MakeGenericMethod(typeof(byte[])).Invoke(client, new object[] { workItems, batch, "bid", topic, "default", CancellationToken.None })!;
 
         Assert.Equal(1, batch.SuccessCount);
         Assert.Equal(3, batch.FailureCount);

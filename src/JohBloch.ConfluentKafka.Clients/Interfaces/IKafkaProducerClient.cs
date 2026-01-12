@@ -6,6 +6,35 @@ namespace JohBloch.ConfluentKafka.Clients.Interfaces
     public interface IKafkaProducerClient : IDisposable
     {
         /// <summary>
+        /// Produces a single message to the configured topic for the specified producer key.
+        /// Convenience alias for <see cref="SendMessageAsync{T}(T,string,string,Confluent.Kafka.Headers?,Confluent.Kafka.ISerializer{T}?,System.Threading.CancellationToken)"/>.
+        /// </summary>
+        /// <typeparam name="T">Type of the message value.</typeparam>
+        /// <param name="message">Message payload to send.</param>
+        /// <param name="key">Partitioning key for the message.</param>
+        /// <param name="producerKey">Logical producer configuration key.</param>
+        /// <param name="headers">Optional Kafka headers.</param>
+        /// <param name="serializer">Optional serializer for the value type.</param>
+        /// <param name="ct">Cancellation token.</param>
+        /// <returns>Result with delivery metadata and success flag.</returns>
+        Task<KafkaResult> ProduceAsync<T>(T message, string key, string producerKey, Headers? headers, ISerializer<T>? serializer, CancellationToken ct);
+
+        /// <summary>
+        /// Produces a batch of messages to Kafka using batch-optimized producer settings.
+        /// Convenience alias for <see cref="SendBatchAsync{T}(System.Collections.Generic.IEnumerable{T},System.Func{T,string},string,Confluent.Kafka.Headers?,Confluent.Kafka.ISerializer{T}?,System.Threading.CancellationToken)"/>.
+        /// Accepts arrays and lists via <see cref="IEnumerable{T}"/>.
+        /// </summary>
+        /// <typeparam name="T">Type of the message value.</typeparam>
+        /// <param name="messages">Collection of messages to send.</param>
+        /// <param name="keySelector">Function selecting the key for each message.</param>
+        /// <param name="producerKey">Logical producer configuration key.</param>
+        /// <param name="headers">Optional Kafka headers applied to all messages.</param>
+        /// <param name="serializer">Optional serializer for the value type.</param>
+        /// <param name="ct">Cancellation token.</param>
+        /// <returns>Batch result with per-message outcomes.</returns>
+        Task<BatchResult> ProduceAsync<T>(IEnumerable<T> messages, Func<T, string> keySelector, string producerKey, Headers? headers, ISerializer<T>? serializer, CancellationToken ct);
+
+        /// <summary>
         /// Sends a single message to the configured topic for the specified producer key.
         /// </summary>
         /// <typeparam name="T">Type of the message value.</typeparam>
