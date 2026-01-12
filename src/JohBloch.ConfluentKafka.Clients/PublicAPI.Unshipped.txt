@@ -1,1 +1,18 @@
 ﻿#nullable enable
+
+JohBloch.ConfluentKafka.Clients.Models.KafkaProducerOptions.AutoDlqOnDeliveryFailure.get -> bool
+JohBloch.ConfluentKafka.Clients.Models.KafkaProducerOptions.AutoDlqOnDeliveryFailure.set -> void
+JohBloch.ConfluentKafka.Clients.Interfaces.IKafkaProducerClient.ProduceAsync<T>(T message, string! key, string! producerKey, Confluent.Kafka.Headers? headers, Confluent.Kafka.ISerializer<T>? serializer, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<JohBloch.ConfluentKafka.Clients.Models.KafkaResult!>!
+JohBloch.ConfluentKafka.Clients.Interfaces.IKafkaProducerClient.ProduceAsync<T>(System.Collections.Generic.IEnumerable<T>! messages, System.Func<T, string!>! keySelector, string! producerKey, Confluent.Kafka.Headers? headers, Confluent.Kafka.ISerializer<T>? serializer, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<JohBloch.ConfluentKafka.Clients.Models.BatchResult!>!
+JohBloch.ConfluentKafka.Clients.Models.KafkaResult.DlqAttempted.get -> bool
+JohBloch.ConfluentKafka.Clients.Models.KafkaResult.DlqAttempted.set -> void
+JohBloch.ConfluentKafka.Clients.Models.KafkaResult.DlqErrorMessage.get -> string?
+JohBloch.ConfluentKafka.Clients.Models.KafkaResult.DlqErrorMessage.set -> void
+JohBloch.ConfluentKafka.Clients.Models.KafkaResult.DlqOffset.get -> long?
+JohBloch.ConfluentKafka.Clients.Models.KafkaResult.DlqOffset.set -> void
+JohBloch.ConfluentKafka.Clients.Models.KafkaResult.DlqPartition.get -> int?
+JohBloch.ConfluentKafka.Clients.Models.KafkaResult.DlqPartition.set -> void
+JohBloch.ConfluentKafka.Clients.Models.KafkaResult.DlqSuccess.get -> bool
+JohBloch.ConfluentKafka.Clients.Models.KafkaResult.DlqSuccess.set -> void
+JohBloch.ConfluentKafka.Clients.Models.KafkaResult.DlqTopic.get -> string?
+JohBloch.ConfluentKafka.Clients.Models.KafkaResult.DlqTopic.set -> void

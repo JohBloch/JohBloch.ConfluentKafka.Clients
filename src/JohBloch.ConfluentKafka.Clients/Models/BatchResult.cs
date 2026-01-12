@@ -45,6 +45,14 @@ public class BatchResult
         _results.Add(new KafkaResult(false, errorMessage: error));
     }
 
+    internal void AddResult(KafkaResult result)
+    {
+        if (result is null) throw new ArgumentNullException(nameof(result));
+        if (result.Success) SuccessCount++;
+        else FailureCount++;
+        _results.Add(result);
+    }
+
     /// <summary>Return a success result for empty batches.</summary>
     public BatchResult SucceedEmpty()
     {

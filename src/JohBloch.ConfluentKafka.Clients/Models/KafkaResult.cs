@@ -23,6 +23,24 @@ public sealed class KafkaResult
     /// <summary>Error message when send fails.</summary>
     public string? ErrorMessage { get; set; }
 
+    /// <summary>Whether an automatic DLQ attempt was made for this message.</summary>
+    public bool DlqAttempted { get; set; }
+
+    /// <summary>Whether the DLQ send succeeded (only meaningful when <see cref="DlqAttempted"/> is true).</summary>
+    public bool DlqSuccess { get; set; }
+
+    /// <summary>DLQ topic name when DLQ send succeeded.</summary>
+    public string? DlqTopic { get; set; }
+
+    /// <summary>DLQ partition when DLQ send succeeded.</summary>
+    public int? DlqPartition { get; set; }
+
+    /// <summary>DLQ offset when DLQ send succeeded.</summary>
+    public long? DlqOffset { get; set; }
+
+    /// <summary>Error message when DLQ send fails.</summary>
+    public string? DlqErrorMessage { get; set; }
+
     /// <summary>
     /// Initializes an empty result.
     /// </summary>
