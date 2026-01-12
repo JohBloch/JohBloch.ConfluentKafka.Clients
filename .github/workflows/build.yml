@@ -22,12 +22,29 @@ jobs:
         
     - name: Restore dependencies
       run: dotnet restore
+
+    - name: Snyk test (dependencies)
+      uses: snyk/actions/dotnet@master
+      env:
+        SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      with:
+        command: test
+        args: --all-projects --severity-threshold=high
       
     - name: Build
       run: dotnet build --no-restore --configuration Release /p:ContinuousIntegrationBuild=true
       
     - name: Test
       run: dotnet test --no-build --configuration Release --verbosity normal --logger "trx;LogFileName=test-results.trx"
+
+    - name: Snyk monitor (snapshot on main)
+      if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+      uses: snyk/actions/dotnet@master
+      env:
+        SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      with:
+        command: monitor
+        args: --all-projects
       
     - name: Test Report
       uses: dorny/test-reporter@v2
