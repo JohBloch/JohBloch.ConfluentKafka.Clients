@@ -93,8 +93,13 @@ Create a small extension in your Function App (or any consuming app) and keep al
 using JohBloch.ConfluentKafka.Clients;
 using JohBloch.ConfluentKafka.Clients.Configuration;
 using JohBloch.ConfluentKafka.Clients.Models;
+using JohBloch.ConfluentKafka.Clients.Interfaces;
+using JohBloch.ConfluentKafka.Clients.Services;
+using JohBloch.ConfluentKafka.Clients.Security;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 public static class KafkaSetupExtensions
 {
@@ -107,6 +112,30 @@ public static class KafkaSetupExtensions
         // The library maps SchemaRegistryUrl by default; this lets you provide the full OAuth configuration.
         services.PostConfigure<SchemaRegistryOptions>(sr => configuration.GetSection("Kafka:SchemaRegistry").Bind(sr));
 
+        // IMPORTANT: Ensure your Kafka ConsumerConfig dictionary is actually applied.
+        // The library registers IKafkaConsumerClient with no globalConfig/overrides by default.
+        // This replacement keeps the consumer as a singleton and passes ConsumerConfig into the consumer.
+        services.AddSingleton<IKafkaConsumerClient>(sp =>
+        {
+            var consumerOptions = sp.GetRequiredService<IOptions<KafkaConsumerOptions>>();
+            var schemaRegistryOptions = sp.GetRequiredService<IOptions<SchemaRegistryOptions>>();
+            var securityProvider = sp.GetRequiredService<ISecurityTokenProvider>();
+            var schemaRegistryFactory = sp.GetRequiredService<ISchemaRegistryFactory>();
+            var logger = sp.GetRequiredService<ILogger<KafkaConsumerClient>>();
+
+            var clientOptions = sp.GetRequiredService<IOptions<KafkaClientOptions>>().Value;
+
+            // Note: KafkaConsumerClient auto-subscribes when Kafka:Consumer:Topic is set.
+            return new KafkaConsumerClient(
+                consumerOptions,
+                schemaRegistryOptions,
+                securityProvider,
+                schemaRegistryFactory,
+                logger,
+                globalConfig: clientOptions.ConsumerConfig,
+                consumerOverrides: null);
+        });
+
         return services;
     }
 }
@@ -115,17 +144,73 @@ public static class KafkaSetupExtensions
 #### `Program.cs` (Azure Functions isolated)
 
 ```csharp
-using Microsoft.Extensions.Hosting;
+using Microsoft.Azure.Functions.Worker.Builder;
 
-var host = new HostBuilder()
-    .ConfigureFunctionsWorkerDefaults()
-    .ConfigureServices((context, services) =>
+var builder = FunctionsApplication.CreateBuilder(args);
+
+builder.ConfigureFunctionsWebApplication();
+
+builder.Services.AddKafkaIntegration(builder.Configuration);
+
+var app = builder.Build();
+app.Run();
+```
+
+#### `KafkaTimer` function (poll every 5 minutes)
+
+```csharp
+using System.Text.Json;
+using JohBloch.ConfluentKafka.Clients.Interfaces;
+using Microsoft.Azure.Functions.Worker;
+using Microsoft.Extensions.Logging;
+
+public sealed class KafkaTimer
+{
+    private readonly IKafkaConsumerClient _consumer;
+    private readonly ILogger<KafkaTimer> _logger;
+
+    public KafkaTimer(IKafkaConsumerClient consumer, ILogger<KafkaTimer> logger)
     {
-        services.AddKafkaIntegration(context.Configuration);
-    })
-    .Build();
+        _consumer = consumer;
+        _logger = logger;
+    }
 
-host.Run();
+    [Function(nameof(KafkaTimer))]
+    public async Task Run([TimerTrigger("0 */5 * * * *")] TimerInfo timer, CancellationToken ct)
+    {
+        _logger.LogInformation("KafkaTimer fired at {UtcNow}", DateTimeOffset.UtcNow);
+
+        const int maxMessages = 100;
+        const int timeoutMs = 4000;
+
+        // Use JsonElement for a generic "just log it" approach.
+        // If you have a POCO, replace JsonElement with your type.
+        var batch = await _consumer.ConsumeBatchAsync<JsonElement>(maxMessages, timeoutMs, ct);
+
+        if (batch.Count == 0)
+        {
+            _logger.LogInformation("No messages received.");
+            return;
+        }
+
+        foreach (var record in batch)
+        {
+            var value = record.Message?.Value;
+            _logger.LogInformation(
+                "Received. Topic={Topic} Partition={Partition} Offset={Offset} Key={Key} Value={Value}",
+                record.Topic,
+                record.Partition.Value,
+                record.Offset.Value,
+                record.Message?.Key,
+                value.ValueKind == JsonValueKind.Undefined ? "<undefined>" : value.GetRawText());
+
+            // Simple demo: commit each message.
+            _consumer.Commit(record);
+        }
+
+        _logger.LogInformation("Processed and committed {Count} messages.", batch.Count);
+    }
+}
 ```
 
 ### Producer Example
