@@ -35,7 +35,7 @@ A modern, feature-rich .NET client library for Apache Kafka with Schema Registry
 - Strongly typed configuration
 - Comprehensive XML documentation
 - Factory patterns for easy DI integration
-- Extensive unit test coverage (106 tests)
+- Extensive unit test coverage
 
 ## Installation
 
@@ -44,6 +44,89 @@ dotnet add package JohBloch.ConfluentKafka.Clients
 ```
 
 ## Quick Start
+
+### Azure Functions (Isolated) - Configuration + DI (Recommended)
+
+This example shows how to keep *all Kafka setup isolated in your consuming app* (not in the NuGet package code), and call a single extension method from `Program.cs`.
+
+#### `local.settings.json` (example)
+
+```json
+{
+    "IsEncrypted": false,
+    "Values": {
+        "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+        "FUNCTIONS_WORKER_RUNTIME": "dotnet-isolated",
+
+        "Kafka__BootstrapServers": "YOUR_BOOTSTRAP_SERVERS",
+        "Kafka__GroupId": "my-function-consumer",
+
+        "Kafka__OAuthTokenEndpoint": "https://YOUR_IDP/oauth/token",
+        "Kafka__OAuthClientId": "YOUR_CLIENT_ID",
+        "Kafka__OAuthClientSecret": "YOUR_CLIENT_SECRET",
+        "Kafka__OAuthScope": "YOUR_SCOPE",
+
+        "Kafka__Consumer__Topic": "orders",
+        "Kafka__Consumer__EnableAutoCommit": "false",
+        "Kafka__Consumer__AutoOffsetReset": "Earliest",
+
+        "Kafka__ConsumerConfig__security.protocol": "SaslSsl",
+        "Kafka__ConsumerConfig__sasl.mechanism": "OAUTHBEARER",
+        "Kafka__ConsumerConfig__sasl.oauthbearer.method": "OIDC",
+        "Kafka__ConsumerConfig__sasl.oauthbearer.token.endpoint.url": "https://YOUR_IDP/oauth/token",
+
+        "Kafka__SchemaRegistry__Url": "https://YOUR_SCHEMA_REGISTRY",
+        "Kafka__SchemaRegistry__TokenEndpointUrl": "https://YOUR_IDP/oauth/token",
+        "Kafka__SchemaRegistry__ClientId": "YOUR_SR_CLIENT_ID",
+        "Kafka__SchemaRegistry__ClientSecret": "YOUR_SR_CLIENT_SECRET",
+        "Kafka__SchemaRegistry__Scope": "YOUR_SR_SCOPE",
+        "Kafka__SchemaRegistry__LogicalCluster": "YOUR_SR_LOGICAL_CLUSTER"
+    }
+}
+```
+
+#### Consuming app extension (example)
+
+Create a small extension in your Function App (or any consuming app) and keep all Kafka wiring there.
+
+```csharp
+using JohBloch.ConfluentKafka.Clients;
+using JohBloch.ConfluentKafka.Clients.Configuration;
+using JohBloch.ConfluentKafka.Clients.Models;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+
+public static class KafkaSetupExtensions
+{
+    public static IServiceCollection AddKafkaIntegration(this IServiceCollection services, IConfiguration configuration)
+    {
+        // Bind all options from configuration and register the library services.
+        services.AddKafkaClients(options => configuration.GetSection("Kafka").Bind(options));
+
+        // Optional: bind Schema Registry OAuth settings (Url + OAuth fields).
+        // The library maps SchemaRegistryUrl by default; this lets you provide the full OAuth configuration.
+        services.PostConfigure<SchemaRegistryOptions>(sr => configuration.GetSection("Kafka:SchemaRegistry").Bind(sr));
+
+        return services;
+    }
+}
+```
+
+#### `Program.cs` (Azure Functions isolated)
+
+```csharp
+using Microsoft.Extensions.Hosting;
+
+var host = new HostBuilder()
+    .ConfigureFunctionsWorkerDefaults()
+    .ConfigureServices((context, services) =>
+    {
+        services.AddKafkaIntegration(context.Configuration);
+    })
+    .Build();
+
+host.Run();
+```
 
 ### Producer Example
 
@@ -232,7 +315,7 @@ docker compose down -v
 - Confluent.Kafka 2.13.0
 - Confluent.SchemaRegistry 2.13.0
 - Chr.Avro.Confluent 10.12.0
-- protobuf-net 3.2.30
+- protobuf-net 3.2.56
 - Microsoft.Extensions.Logging 9.0.0
 
 ## Building from Source
@@ -249,7 +332,7 @@ dotnet build
 dotnet test
 ```
 
-All 106 tests should pass in approximately 50 seconds.
+All tests should pass in approximately 50 seconds.
 
 ## Project Structure
 
@@ -266,7 +349,7 @@ All 106 tests should pass in approximately 50 seconds.
 │       │   ├── KafkaProducerClient.cs
 │       │   └── KafkaConsumerClient.cs
 │       └── Security/                # Security providers
-├── tests/                           # Unit tests (106 tests)
+├── tests/                           # Unit tests
 ├── docs/                            # Documentation
 └── JohBloch.ConfluentKafka.Clients.sln
 ```
