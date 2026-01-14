@@ -8,7 +8,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     
     steps:
     - uses: actions/checkout@v6
@@ -19,6 +19,9 @@ jobs:
       uses: actions/setup-dotnet@v5
       with:
         dotnet-version: 8.0.x
+
+    - name: Install librdkafka
+      run: sudo apt-get update && sudo apt-get install -y librdkafka-dev
         
     - name: Restore dependencies
       run: dotnet restore
@@ -60,3 +63,6 @@ jobs:
       with:
         name: testresults
         path: '**/TestResults/**'
+
+
+        
