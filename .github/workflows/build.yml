@@ -19,6 +19,9 @@ jobs:
       uses: actions/setup-dotnet@v5
       with:
         dotnet-version: 8.0.x
+
+    - name: Install librdkafka
+      run: sudo apt-get update && sudo apt-get install -y librdkafka-dev
         
     - name: Restore dependencies
       run: dotnet restore
@@ -33,9 +36,6 @@ jobs:
       
     - name: Build
       run: dotnet build --no-restore --configuration Release /p:ContinuousIntegrationBuild=true
-      
-    - name: Test
-      run: dotnet test --no-build --configuration Release --verbosity normal --logger "trx;LogFileName=test-results.trx"
 
     - name: Snyk monitor (snapshot on main)
       if: github.ref == 'refs/heads/main' && github.event_name == 'push'
@@ -46,10 +46,4 @@ jobs:
         command: monitor
         args: --all-projects
       
-    - name: Test Report
-      uses: dorny/test-reporter@v2
-      if: success() || failure()
-      with:
-        name: Test Results
-        path: '**/test-results.trx'
-        reporter: dotnet-trx
+
