@@ -87,6 +87,8 @@ using JohBloch.ConfluentKafka.Clients;
 using JohBloch.ConfluentKafka.Clients.Models;
 using Microsoft.Azure.Functions.Worker.Builder;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting;
 
 var builder = FunctionsApplication.CreateBuilder(args);
 
