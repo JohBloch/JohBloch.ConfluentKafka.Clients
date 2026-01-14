@@ -93,7 +93,24 @@ public static class ServiceCollectionExtensions
         });
 
         // 6. Register Consumer Client
-        services.TryAddSingleton<IKafkaConsumerClient, KafkaConsumerClient>();
+        services.TryAddSingleton<IKafkaConsumerClient>(sp =>
+        {
+            var consumerOpts = sp.GetRequiredService<IOptions<KafkaConsumerOptions>>();
+            var srOpts = sp.GetRequiredService<IOptions<SchemaRegistryOptions>>();
+            var security = sp.GetRequiredService<ISecurityTokenProvider>();
+            var schemaRegistry = sp.GetRequiredService<ISchemaRegistryFactory>();
+            var logger = sp.GetRequiredService<ILogger<KafkaConsumerClient>>();
+            var clientOptions = sp.GetRequiredService<IOptions<KafkaClientOptions>>().Value;
+
+            return new KafkaConsumerClient(
+                consumerOpts,
+                srOpts,
+                security,
+                schemaRegistry,
+                logger,
+                globalConfig: clientOptions.ConsumerConfig,
+                consumerOverrides: null);
+        });
 
         return services;
     }

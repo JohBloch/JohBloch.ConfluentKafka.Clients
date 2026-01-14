@@ -4,9 +4,11 @@ This guide demonstrates how to configure OAuth/OIDC authentication for Kafka cli
 
 ## Prerequisites
 
-- Kafka cluster with OAuth/SASL_OASLBEARER authentication enabled
+- Kafka cluster with OAuth/SASL_OAUTHBEARER authentication enabled
 - OAuth identity provider (Azure AD, Okta, Auth0, Keycloak, etc.)
 - Client credentials (client ID and client secret)
+
+Note: when `OAuthTokenEndpoint`/`OAuthClientId`/`OAuthClientSecret` are configured, the library will automatically add the needed SASL/OAUTHBEARER settings (`security.protocol`, `sasl.mechanism`, and OIDC token endpoint url) to both producer and consumer configs.
 
 ## Basic OAuth Configuration
 
@@ -27,20 +29,6 @@ services.AddKafkaClients(options =>
     options.OAuthClientId = "your-client-id";
     options.OAuthClientSecret = "your-client-secret";
     options.OAuthScope = "kafka"; // Optional, depends on your OAuth provider
-    
-    // Additional Kafka security settings
-    options.GlobalProducerConfig = new Dictionary<string, string>
-    {
-        { "security.protocol", "SASL_SSL" },
-        { "sasl.mechanism", "OAUTHBEARER" },
-        { "ssl.ca.location", "/path/to/ca-cert.pem" } // Optional: if using custom CA
-    };
-    
-    options.ConsumerConfig = new Dictionary<string, string>
-    {
-        { "security.protocol", "SASL_SSL" },
-        { "sasl.mechanism", "OAUTHBEARER" }
-    };
 });
 
 var serviceProvider = services.BuildServiceProvider();
@@ -60,13 +48,6 @@ services.AddKafkaClients(options =>
     options.OAuthClientId = "your-app-client-id";
     options.OAuthClientSecret = "your-app-client-secret";
     options.OAuthScope = "https://your-kafka-instance/.default";
-    
-    // Azure Event Hubs for Kafka
-    options.GlobalProducerConfig = new Dictionary<string, string>
-    {
-        { "security.protocol", "SASL_SSL" },
-        { "sasl.mechanism", "OAUTHBEARER" }
-    };
 });
 ```
 
@@ -98,12 +79,6 @@ services.AddKafkaClients(options =>
     options.OAuthClientId = "your-okta-client-id";
     options.OAuthClientSecret = "your-okta-client-secret";
     options.OAuthScope = "kafka-access";
-    
-    options.GlobalProducerConfig = new Dictionary<string, string>
-    {
-        { "security.protocol", "SASL_SSL" },
-        { "sasl.mechanism", "OAUTHBEARER" }
-    };
 });
 ```
 
@@ -121,12 +96,6 @@ services.AddKafkaClients(options =>
     options.OAuthClientId = "kafka-client";
     options.OAuthClientSecret = "your-keycloak-client-secret";
     options.OAuthScope = "openid";
-    
-    options.GlobalProducerConfig = new Dictionary<string, string>
-    {
-        { "security.protocol", "SASL_SSL" },
-        { "sasl.mechanism", "OAUTHBEARER" }
-    };
 });
 ```
 
@@ -142,11 +111,9 @@ services.AddKafkaClients(options =>
     options.OAuthClientId = "your-client-id";
     options.OAuthClientSecret = "your-client-secret";
     
+    // Optional: add extra SSL settings (in addition to the auto-added SASL/OAUTHBEARER keys)
     options.GlobalProducerConfig = new Dictionary<string, string>
     {
-        { "security.protocol", "SASL_SSL" },
-        { "sasl.mechanism", "OAUTHBEARER" },
-        
         // SSL certificate configuration
         { "ssl.ca.location", "/path/to/ca-cert.pem" },
         { "ssl.certificate.location", "/path/to/client-cert.pem" },
@@ -207,19 +174,11 @@ services.AddKafkaClients(options =>
 
 ## Token Refresh
 
-The library automatically handles OAuth token refresh:
+The library uses Confluent.Kafka's OAuth bearer token refresh callbacks for both producers and consumers. Internally it calls `ISecurityTokenProvider.GetAccessTokenAsync()`.
 
-```csharp
-// Token refresh is handled automatically by the OAuthAuthenticationHandler
-// Tokens are refreshed before expiration based on the token's expires_in value
-// No manual refresh logic required in your application code
-
-// The handler:
-// 1. Obtains initial token on first connection
-// 2. Monitors token expiration
-// 3. Refreshes token before expiration
-// 4. Handles refresh failures with exponential backoff
-```
+- Tokens are cached in-memory and refreshed before expiration.
+- If OAuth is partially configured (some OAuth fields are present) but required settings are missing, the default provider throws an `InvalidOperationException` to fail fast.
+- You can replace `ISecurityTokenProvider` with your own implementation if you need non-standard flows, custom extensions (e.g. `logicalCluster`), or different caching.
 
 ## Testing OAuth Configuration
 
