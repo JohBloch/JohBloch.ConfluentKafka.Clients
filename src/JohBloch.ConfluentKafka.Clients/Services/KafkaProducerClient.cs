@@ -119,8 +119,16 @@ namespace JohBloch.ConfluentKafka.Clients.Services
                     {
                         var token = await _security.GetAccessTokenAsync(CancellationToken.None);
                         var extensions = _security.GetExtensions();
-                        var lifetimeMs = (long)Math.Max(1, (token.ExpiresOn - DateTimeOffset.UtcNow).TotalMilliseconds);
-                        client.OAuthBearerSetToken(token.AccessTokenValue, lifetimeMs, null, extensions);
+                        var nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                        var expMs = token.ExpiresOn.ToUnixTimeMilliseconds();
+                        if (expMs <= nowMs)
+                        {
+                            throw new InvalidOperationException(
+                                $"OAuth token is already expired (nowMs={nowMs}, expMs={expMs}).");
+                        }
+
+                        // librdkafka expects an absolute expiry timestamp (ms since epoch).
+                        client.OAuthBearerSetToken(token.AccessTokenValue, expMs, null, extensions);
                     }
                     catch (Exception ex)
                     {
