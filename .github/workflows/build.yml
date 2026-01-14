@@ -41,45 +41,8 @@ jobs:
     - name: Build
       run: dotnet build --no-restore --configuration Release /p:ContinuousIntegrationBuild=true
 
-    - name: Inspect native dependencies (librdkafka)
-      shell: bash
-      run: |
-        set -euo pipefail
-        echo "Searching for librdkafka native binaries..."
-        find . -type f \( -name "librdkafka*.so" -o -name "librdkafka*.so.*" \) -print || true
-        echo "Running ldd (if any were found)..."
-        while IFS= read -r sofile; do
-          echo "--- ldd $sofile ---"
-          ldd "$sofile" || true
-        done < <(find . -type f \( -name "librdkafka*.so" -o -name "librdkafka*.so.*" \) -print)
-      
     - name: Test
-      env:
-        DOTNET_CLI_TELEMETRY_OPTOUT: '1'
-        DOTNET_NOLOGO: '1'
-      shell: bash
-      run: |
-        set -euo pipefail
-        mkdir -p ./TestResults
-        dotnet test ./tests/JohBloch.ConfluentKafka.Clients.Tests.csproj \
-          --no-build \
-          --configuration Release \
-          --verbosity normal \
-          --settings ./tests/vstest.runsettings \
-          --results-directory ./TestResults \
-          --logger "trx;LogFileName=test-results.trx" \
-          --diag ./TestResults/vstest.diag.log \
-          --blame-crash \
-          --blame-crash-dump-type full \
-          --blame-hang \
-          --blame-hang-timeout 5m
-
-    - name: Upload TestResults (including blame + diag)
-      if: success() || failure()
-      uses: actions/upload-artifact@v4
-      with:
-        name: testresults
-        path: '**/TestResults/**'
+      run: dotnet test ./tests/JohBloch.ConfluentKafka.Clients.Tests.csproj --no-build --configuration Release --verbosity normal --blame --logger "trx;LogFileName=test-results.trx"
 
     - name: Snyk monitor (snapshot on main)
       if: github.ref == 'refs/heads/main' && github.event_name == 'push'
@@ -89,5 +52,20 @@ jobs:
       with:
         command: monitor
         args: --all-projects
+      
+    - name: Test Report
+      uses: dorny/test-reporter@v2
+      if: success() || failure()
+      with:
+        name: Test Results
+        path: '**/test-results.trx'
+        reporter: dotnet-trx
+
+    - name: Upload TestResults (including blame)
+      if: success() || failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: testresults
+        path: '**/TestResults/**'
       
 
