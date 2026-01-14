@@ -8,7 +8,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     
     steps:
     - uses: actions/checkout@v6
@@ -38,7 +38,10 @@ jobs:
       run: dotnet build --no-restore --configuration Release /p:ContinuousIntegrationBuild=true
       
     - name: Test
-      run: dotnet test ./tests/JohBloch.ConfluentKafka.Clients.Tests.csproj --no-build --configuration Release --verbosity normal --blame --logger "trx;LogFileName=test-results.trx"
+      env:
+        DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+        DOTNET_NOLOGO: '1'
+      run: dotnet test ./tests/JohBloch.ConfluentKafka.Clients.Tests.csproj --no-build --configuration Release --verbosity normal --results-directory ./TestResults --logger "trx;LogFileName=test-results.trx" --diag ./TestResults/vstest.diag.log --blame-crash --blame-crash-dump-type full --blame-hang --blame-hang-timeout 5m
 
     - name: Snyk monitor (snapshot on main)
       if: github.ref == 'refs/heads/main' && github.event_name == 'push'
