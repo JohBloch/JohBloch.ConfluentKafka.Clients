@@ -27,18 +27,51 @@ jobs:
       uses: actions/setup-dotnet@v5
       with:
         dotnet-version: 8.0.x
+
+    - name: .NET info
+      shell: bash
+      run: dotnet --info
+
+    - name: Install librdkafka
+      run: sudo apt-get update && sudo apt-get install -y librdkafka-dev
         
     - name: Restore dependencies
       run: dotnet restore
       
     - name: Build
       run: dotnet build --configuration Release --no-restore /p:ContinuousIntegrationBuild=true
+
+    - name: Inspect native dependencies (librdkafka)
+      shell: bash
+      run: |
+        set -euo pipefail
+        echo "Searching for librdkafka native binaries..."
+        find . -type f \( -name "librdkafka*.so" -o -name "librdkafka*.so.*" \) -print || true
+        echo "Running ldd (if any were found)..."
+        while IFS= read -r sofile; do
+          echo "--- ldd $sofile ---"
+          ldd "$sofile" || true
+        done < <(find . -type f \( -name "librdkafka*.so" -o -name "librdkafka*.so.*" \) -print)
       
     - name: Test
       env:
         DOTNET_CLI_TELEMETRY_OPTOUT: '1'
         DOTNET_NOLOGO: '1'
-      run: dotnet test ./tests/JohBloch.ConfluentKafka.Clients.Tests.csproj --configuration Release --no-build --verbosity normal --results-directory ./TestResults --diag ./TestResults/vstest.diag.log --blame-crash --blame-crash-dump-type full --blame-hang --blame-hang-timeout 5m
+      shell: bash
+      run: |
+        set -euo pipefail
+        mkdir -p ./TestResults
+        dotnet test ./tests/JohBloch.ConfluentKafka.Clients.Tests.csproj \
+          --no-build \
+          --configuration Release \
+          --verbosity normal \
+          --settings ./tests/vstest.runsettings \
+          --results-directory ./TestResults \
+          --diag ./TestResults/vstest.diag.log \
+          --blame-crash \
+          --blame-crash-dump-type full \
+          --blame-hang \
+          --blame-hang-timeout 5m
 
     - name: Upload TestResults (including blame)
       if: success() || failure()
