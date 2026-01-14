@@ -37,6 +37,9 @@ jobs:
     - name: Build
       run: dotnet build --no-restore --configuration Release /p:ContinuousIntegrationBuild=true
 
+    - name: Test
+      run: dotnet test ./tests/JohBloch.ConfluentKafka.Clients.Tests.csproj --no-build --configuration Release --verbosity normal --blame --logger "trx;LogFileName=test-results.trx"
+
     - name: Snyk monitor (snapshot on main)
       if: github.ref == 'refs/heads/main' && github.event_name == 'push'
       uses: snyk/actions/dotnet@master
@@ -45,5 +48,20 @@ jobs:
       with:
         command: monitor
         args: --all-projects
+      
+    - name: Test Report
+      uses: dorny/test-reporter@v2
+      if: success() || failure()
+      with:
+        name: Test Results
+        path: '**/test-results.trx'
+        reporter: dotnet-trx
+
+    - name: Upload TestResults (including blame)
+      if: success() || failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: testresults
+        path: '**/TestResults/**'
       
 
