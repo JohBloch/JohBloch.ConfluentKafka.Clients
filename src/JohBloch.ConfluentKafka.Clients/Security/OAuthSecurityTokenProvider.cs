@@ -32,18 +32,23 @@ public class OAuthSecurityTokenProvider : ISecurityTokenProvider
         _options = options.Value;
         _logger = logger;
         _httpClient = httpClientFactory.CreateClient("KafkaOAuth");
+
+        // Fail fast if OAuth is intended but required settings are missing.
+        ValidateOAuthOptionsIfEnabled();
     }
 
     /// <inheritdoc />
     public async Task<AccessToken> GetAccessTokenAsync(CancellationToken cancellationToken = default)
     {
-        // If OAuth is not configured (e.g. using API Keys), return empty or throw depending on usage.
-        // But if SASL mechanism is OAUTHBEARER, this will be called.
-        if (string.IsNullOrEmpty(_options.OAuthTokenEndpoint))
+        // If OAuth is not configured (e.g. using API Keys), return empty.
+        // If OAuth is intended, validation is performed and missing settings will throw.
+        if (!IsOAuthEnabled())
         {
-            _logger.LogWarning("OAuthTokenEndpoint is not configured, but GetAccessTokenAsync was called.");
+            _logger.LogWarning("OAuth is not configured, but GetAccessTokenAsync was called.");
             return new AccessToken(string.Empty, DateTimeOffset.UtcNow);
         }
+
+        ValidateOAuthOptionsIfEnabled();
 
         // Return cached token if valid (simple in-memory cache)
         if (_cachedToken != null && _cachedToken.ExpiresOn > DateTimeOffset.UtcNow.AddMinutes(5))
@@ -92,9 +97,59 @@ public class OAuthSecurityTokenProvider : ISecurityTokenProvider
     /// <inheritdoc />
     public Dictionary<string, string>? GetKafkaSaslConfig()
     {
-        // If using OAUTHBEARER, we might need to return specific config here, 
-        // usually standard SASL config is sufficient via librdkafka properties.
-        return null;
+        // Return SASL settings when OAuth is configured so both consumer and producer
+        // can consistently enable OAUTHBEARER based on the same options.
+        if (!IsOAuthEnabled())
+        {
+            return null;
+        }
+
+        ValidateOAuthOptionsIfEnabled();
+
+        // Use standard librdkafka keys.
+        // We still use the .NET refresh handler to fetch and set tokens.
+        return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["security.protocol"] = "SASL_SSL",
+            ["sasl.mechanism"] = "OAUTHBEARER",
+
+            // Many brokers use the OIDC method; endpoint url also helps future-proofing.
+            ["sasl.oauthbearer.method"] = "OIDC",
+            ["sasl.oauthbearer.token.endpoint.url"] = _options.OAuthTokenEndpoint!
+        };
+    }
+
+    private bool IsOAuthEnabled()
+    {
+        return !string.IsNullOrWhiteSpace(_options.OAuthTokenEndpoint)
+               || !string.IsNullOrWhiteSpace(_options.OAuthClientId)
+               || !string.IsNullOrWhiteSpace(_options.OAuthClientSecret)
+               || !string.IsNullOrWhiteSpace(_options.OAuthScope);
+    }
+
+    private void ValidateOAuthOptionsIfEnabled()
+    {
+        if (!IsOAuthEnabled())
+        {
+            return;
+        }
+
+        var missing = new List<string>(capacity: 3);
+        if (string.IsNullOrWhiteSpace(_options.OAuthTokenEndpoint)) missing.Add(nameof(KafkaClientOptions.OAuthTokenEndpoint));
+        if (string.IsNullOrWhiteSpace(_options.OAuthClientId)) missing.Add(nameof(KafkaClientOptions.OAuthClientId));
+        if (string.IsNullOrWhiteSpace(_options.OAuthClientSecret)) missing.Add(nameof(KafkaClientOptions.OAuthClientSecret));
+
+        if (missing.Count > 0)
+        {
+            throw new InvalidOperationException(
+                $"OAuth2 is enabled (some OAuth settings are present), but the following required setting(s) are missing: {string.Join(", ", missing)}");
+        }
+
+        if (!Uri.TryCreate(_options.OAuthTokenEndpoint, UriKind.Absolute, out _))
+        {
+            throw new InvalidOperationException(
+                $"Invalid OAuthTokenEndpoint '{_options.OAuthTokenEndpoint}'. Expected an absolute URL.");
+        }
     }
 
     private async Task<OAuthResponse> FetchTokenInternalAsync(CancellationToken cancellationToken)

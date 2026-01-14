@@ -47,7 +47,7 @@ dotnet add package JohBloch.ConfluentKafka.Clients
 
 ### Azure Functions (Isolated) - Configuration + DI (Recommended)
 
-This example shows how to keep *all Kafka setup isolated in your consuming app* (not in the NuGet package code), and call a single extension method from `Program.cs`.
+This example shows how to keep *all Kafka setup isolated in your consuming app* (not in the NuGet package code), and wire everything up from `Program.cs`.
 
 #### `local.settings.json` (example)
 
@@ -70,11 +70,6 @@ This example shows how to keep *all Kafka setup isolated in your consuming app* 
         "Kafka__Consumer__EnableAutoCommit": "false",
         "Kafka__Consumer__AutoOffsetReset": "Earliest",
 
-        "Kafka__ConsumerConfig__security.protocol": "SaslSsl",
-        "Kafka__ConsumerConfig__sasl.mechanism": "OAUTHBEARER",
-        "Kafka__ConsumerConfig__sasl.oauthbearer.method": "OIDC",
-        "Kafka__ConsumerConfig__sasl.oauthbearer.token.endpoint.url": "https://YOUR_IDP/oauth/token",
-
         "Kafka__SchemaRegistry__Url": "https://YOUR_SCHEMA_REGISTRY",
         "Kafka__SchemaRegistry__TokenEndpointUrl": "https://YOUR_IDP/oauth/token",
         "Kafka__SchemaRegistry__ClientId": "YOUR_SR_CLIENT_ID",
@@ -85,72 +80,24 @@ This example shows how to keep *all Kafka setup isolated in your consuming app* 
 }
 ```
 
-#### Consuming app extension (example)
-
-Create a small extension in your Function App (or any consuming app) and keep all Kafka wiring there.
-
-```csharp
-using JohBloch.ConfluentKafka.Clients;
-using JohBloch.ConfluentKafka.Clients.Configuration;
-using JohBloch.ConfluentKafka.Clients.Models;
-using JohBloch.ConfluentKafka.Clients.Interfaces;
-using JohBloch.ConfluentKafka.Clients.Services;
-using JohBloch.ConfluentKafka.Clients.Security;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
-
-public static class KafkaSetupExtensions
-{
-    public static IServiceCollection AddKafkaIntegration(this IServiceCollection services, IConfiguration configuration)
-    {
-        // Bind all options from configuration and register the library services.
-        services.AddKafkaClients(options => configuration.GetSection("Kafka").Bind(options));
-
-        // Optional: bind Schema Registry OAuth settings (Url + OAuth fields).
-        // The library maps SchemaRegistryUrl by default; this lets you provide the full OAuth configuration.
-        services.PostConfigure<SchemaRegistryOptions>(sr => configuration.GetSection("Kafka:SchemaRegistry").Bind(sr));
-
-        // IMPORTANT: Ensure your Kafka ConsumerConfig dictionary is actually applied.
-        // The library registers IKafkaConsumerClient with no globalConfig/overrides by default.
-        // This replacement keeps the consumer as a singleton and passes ConsumerConfig into the consumer.
-        services.AddSingleton<IKafkaConsumerClient>(sp =>
-        {
-            var consumerOptions = sp.GetRequiredService<IOptions<KafkaConsumerOptions>>();
-            var schemaRegistryOptions = sp.GetRequiredService<IOptions<SchemaRegistryOptions>>();
-            var securityProvider = sp.GetRequiredService<ISecurityTokenProvider>();
-            var schemaRegistryFactory = sp.GetRequiredService<ISchemaRegistryFactory>();
-            var logger = sp.GetRequiredService<ILogger<KafkaConsumerClient>>();
-
-            var clientOptions = sp.GetRequiredService<IOptions<KafkaClientOptions>>().Value;
-
-            // Note: KafkaConsumerClient auto-subscribes when Kafka:Consumer:Topic is set.
-            return new KafkaConsumerClient(
-                consumerOptions,
-                schemaRegistryOptions,
-                securityProvider,
-                schemaRegistryFactory,
-                logger,
-                globalConfig: clientOptions.ConsumerConfig,
-                consumerOverrides: null);
-        });
-
-        return services;
-    }
-}
-```
-
 #### `Program.cs` (Azure Functions isolated)
 
 ```csharp
+using JohBloch.ConfluentKafka.Clients;
+using JohBloch.ConfluentKafka.Clients.Models;
 using Microsoft.Azure.Functions.Worker.Builder;
+using Microsoft.Extensions.DependencyInjection;
 
 var builder = FunctionsApplication.CreateBuilder(args);
 
 builder.ConfigureFunctionsWebApplication();
 
-builder.Services.AddKafkaIntegration(builder.Configuration);
+// Bind all options from configuration and register the library services.
+builder.Services.AddKafkaClients(options => builder.Configuration.GetSection("Kafka").Bind(options));
+
+// Optional: bind Schema Registry OAuth settings (Url + OAuth fields).
+// The library maps SchemaRegistryUrl by default; this lets you provide the full OAuth configuration.
+builder.Services.PostConfigure<SchemaRegistryOptions>(sr => builder.Configuration.GetSection("Kafka:SchemaRegistry").Bind(sr));
 
 var app = builder.Build();
 app.Run();
@@ -216,75 +163,56 @@ public sealed class KafkaTimer
 ### Producer Example
 
 ```csharp
-using JohBloch.ConfluentKafka.Clients.Services;
+using JohBloch.ConfluentKafka.Clients.Interfaces;
 using JohBloch.ConfluentKafka.Clients.Models;
 
-// Configure producer
-var producerOptions = new Dictionary<string, KafkaProducerOptions>
+public sealed class OrderPublisher
 {
-    ["default"] = new KafkaProducerOptions
+    private readonly IKafkaProducerClient _producer;
+
+    public OrderPublisher(IKafkaProducerClient producer)
     {
-        BootstrapServers = "localhost:9092",
-        Topic = "orders",
-        ApplicationId = "order-service",
-        BatchSizeKB = 32,
-        CompressionType = "gzip"
+        _producer = producer;
     }
-};
 
-// Create producer client
-var producer = new KafkaProducerClient(
-    producerOptions,
-    securityTokenProvider,
-    schemaRegistryFactory,
-    logger);
-
-// Send single message
-var order = new Order { OrderId = "123", Amount = 99.99m };
-await producer.SendMessageWithSchemaAsync(
-    message: order,
-    key: "123",
-    producerKey: "default",
-    schemaType: SchemaType.Json);
-
-// Send batch
-var orders = new List<Order> { /* ... */ };
-await producer.SendBatchAsync(
-    messages: orders,
-    keySelector: o => o.OrderId,
-    producerKey: "default");
+    public Task PublishAsync(Order order, CancellationToken ct)
+    {
+        // The producerKey must exist in Kafka:Producers config
+        return _producer.SendMessageWithSchemaAsync(
+            message: order,
+            key: order.OrderId,
+            producerKey: "default",
+            schemaType: SchemaType.Json,
+            ct: ct);
+    }
+}
 ```
 
 ### Consumer Example
 
 ```csharp
-// Configure consumer
-var consumerOptions = new KafkaConsumerOptions
+using JohBloch.ConfluentKafka.Clients.Interfaces;
+
+public sealed class OrderWorker
 {
-    BootstrapServers = "localhost:9092",
-    GroupId = "order-processor",
-    Topics = new[] { "orders" }
-};
+    private readonly IKafkaConsumerClient _consumer;
 
-// Create consumer client
-var consumer = new KafkaConsumerClient(
-    consumerOptions,
-    schemaRegistryOptions,
-    securityTokenProvider,
-    schemaRegistryFactory,
-    logger);
+    public OrderWorker(IKafkaConsumerClient consumer)
+    {
+        _consumer = consumer;
+    }
 
-// Subscribe and consume
-consumer.Subscribe(new[] { "orders" });
+    public async Task PollOnceAsync(CancellationToken ct)
+    {
+        // Optional if you already set Kafka:Consumer:Topic
+        _consumer.Subscribe(new[] { "orders" });
 
-var result = await consumer.ConsumeAsync<Order>(
-    topics: new[] { "orders" },
-    deserializer: deserializer,
-    cancellationToken: cancellationToken);
+        var record = await _consumer.ConsumeAsync<Order>(ct);
+        if (record is null) return;
 
-foreach (var message in result.Messages)
-{
-    await ProcessOrderAsync(message.Message.Value);
+        await ProcessOrderAsync(record.Message.Value);
+        _consumer.Commit(record);
+    }
 }
 ```
 
@@ -316,10 +244,13 @@ public class KafkaProducerOptions
     public string Topic { get; set; }
     public string ApplicationId { get; set; }
     public int BatchSizeKB { get; set; } = 32;
-    public int QueueBufferMaxMessages { get; set; } = 100000;
+    public int LingerMS { get; set; } = 100;
+    public int QueueBufferMaxMessages { get; set; } = 50000;
     public string CompressionType { get; set; } = "none";
+    public int CompressionLevel { get; set; } = 0;
     public string DeadLetterQueueTopicPattern { get; set; } = "dlq-{topic}";
     public bool IncludeStackTraceInDlq { get; set; } = false;
+    public bool AutoDlqOnDeliveryFailure { get; set; } = false;
 }
 ```
 
@@ -330,10 +261,14 @@ public class KafkaConsumerOptions
 {
     public string BootstrapServers { get; set; }
     public string GroupId { get; set; }
-    public string[] Topics { get; set; }
+    public string Topic { get; set; }
+    public int SessionTimeoutMs { get; set; } = 45000;
+    public int HeartbeatIntervalMs { get; set; } = 3000;
     public string AutoOffsetReset { get; set; } = "earliest";
-    public bool EnableAutoCommit { get; set; } = false;
-    public int MaxPollRecords { get; set; } = 500;
+    public bool EnableAutoCommit { get; set; } = true;
+    public SchemaType DefaultSchemaType { get; set; } = SchemaType.Avro;
+    public bool AutoDetectSchemaType { get; set; } = true;
+    public Dictionary<string, SchemaType> TopicSchemaTypes { get; set; } = new();
 }
 ```
 
