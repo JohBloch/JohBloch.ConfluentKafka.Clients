@@ -15,9 +15,18 @@ namespace JohBloch.ConfluentKafka.Clients.Services
         private readonly SerializerFactory _serializerFactory;
         private readonly ConcurrentDictionary<(string ProducerKey, Type Type, bool Batch), object> _producers = new();
         private readonly Dictionary<string, KafkaProducerOptions> _producerOptions;
+        private int _disposed;
         // New: optional passthrough config dictionaries
         private readonly IDictionary<string, string>? _globalConfig;
         private readonly IDictionary<string, IDictionary<string, string>>? _perProducerConfigs;
+
+        private void ThrowIfDisposed()
+        {
+            if (System.Threading.Volatile.Read(ref _disposed) != 0)
+            {
+                throw new ObjectDisposedException(nameof(KafkaProducerClient));
+            }
+        }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="KafkaProducerClient"/>.
@@ -316,6 +325,7 @@ namespace JohBloch.ConfluentKafka.Clients.Services
             ISerializer<T>? serializer = null,
             CancellationToken ct = default)
         {
+            ThrowIfDisposed();
             var producer = GetProducer<T>(producerKey, batchOptimized: false, serializer: serializer);
             var topic = _producerOptions[producerKey].Topic;
             return await ProduceMessageAsync(producer, message, key, topic, headers, producerKey, ct);
@@ -349,6 +359,7 @@ namespace JohBloch.ConfluentKafka.Clients.Services
             Headers? headers = null,
             CancellationToken ct = default)
         {
+            ThrowIfDisposed();
             var serializer = _serializerFactory.Create<T>(schemaType);
             var wrappedSerializer = new AsyncSerializerWrapper<T>(serializer);
             return await SendMessageAsync(message, key, producerKey, headers, wrappedSerializer, ct);
@@ -522,6 +533,7 @@ namespace JohBloch.ConfluentKafka.Clients.Services
             ISerializer<T>? serializer = null,
             CancellationToken ct = default)
         {
+            ThrowIfDisposed();
             var batchId = Guid.NewGuid().ToString();
             using var scope = _logger.BeginScope(new { BatchId = batchId });
 
@@ -719,6 +731,11 @@ namespace JohBloch.ConfluentKafka.Clients.Services
         /// </summary>
         public void Dispose()
         {
+            if (System.Threading.Interlocked.Exchange(ref _disposed, 1) != 0)
+            {
+                return;
+            }
+
             foreach (var p in _producers.Values)
             {
                 try
@@ -733,7 +750,18 @@ namespace JohBloch.ConfluentKafka.Clients.Services
                     _logger.LogWarning(ex, "Error disposing Kafka producer instance");
                 }
             }
-            _schemaRegistry?.Dispose();
+
+            _producers.Clear();
+
+            try
+            {
+                _schemaRegistry.Dispose();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Error during schema registry dispose");
+            }
+
             _logger.LogInformation("KafkaProducerClient disposed");
         }
 
@@ -763,6 +791,7 @@ namespace JohBloch.ConfluentKafka.Clients.Services
             string producerKey,
             CancellationToken ct)
         {
+            ThrowIfDisposed();
             if (dlqMessage == null) throw new ArgumentNullException(nameof(dlqMessage));
             if (!_producerOptions.TryGetValue(producerKey, out var options))
                 throw new ArgumentException($"Producer key '{producerKey}' not found in configuration", nameof(producerKey));
@@ -823,6 +852,7 @@ namespace JohBloch.ConfluentKafka.Clients.Services
             Dictionary<string, string>? additionalMetadata,
             CancellationToken ct)
         {
+            ThrowIfDisposed();
             if (originalMessage == null) throw new ArgumentNullException(nameof(originalMessage));
             if (exception == null) throw new ArgumentNullException(nameof(exception));
             if (!_producerOptions.TryGetValue(producerKey, out var options))

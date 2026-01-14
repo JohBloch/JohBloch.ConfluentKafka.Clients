@@ -17,9 +17,17 @@ namespace JohBloch.ConfluentKafka.Clients.Services
         private readonly ISecurityTokenProvider _securityProvider;
         private readonly IConsumer<string, byte[]> _consumer;
         private readonly DeserializerFactory _deserializerFactory;
-        private bool _disposed = false;
+        private int _disposed;
         private readonly IDictionary<string, string>? _globalConfig;
         private readonly IDictionary<string, string>? _consumerOverrides;
+
+        private void ThrowIfDisposed()
+        {
+            if (System.Threading.Volatile.Read(ref _disposed) != 0)
+            {
+                throw new ObjectDisposedException(nameof(KafkaConsumerClient));
+            }
+        }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="KafkaConsumerClient"/> class.
@@ -296,6 +304,7 @@ namespace JohBloch.ConfluentKafka.Clients.Services
         /// <param name="topics">The topics to subscribe to.</param>
         public void Subscribe(IEnumerable<string> topics)
         {
+            ThrowIfDisposed();
             if (topics == null)
             {
                 throw new ArgumentNullException(nameof(topics));
@@ -316,6 +325,7 @@ namespace JohBloch.ConfluentKafka.Clients.Services
         /// </summary>
         public async Task<ConsumeResult<string, T>?> ConsumeAsync<T>(CancellationToken ct = default)
         {
+            ThrowIfDisposed();
             try
             {
                 // bounded poll with cancellation
@@ -498,6 +508,7 @@ namespace JohBloch.ConfluentKafka.Clients.Services
         /// </summary>
         public async Task<List<ConsumeResult<string, T>>> ConsumeBatchAsync<T>(int maxMessages, int timeoutMs = 5000, CancellationToken ct = default)
         {
+            ThrowIfDisposed();
             // Simplified: only generic/POCO and raw types supported. Avro GenericRecord/SpecificRecord paths removed.
             return await ConsumeBatchWithDeserializer<T>(maxMessages, timeoutMs, ct);
         }
@@ -651,6 +662,7 @@ namespace JohBloch.ConfluentKafka.Clients.Services
         /// </summary>
     public void CommitAsync(ConsumeResult<string, byte[]> result)
         {
+            ThrowIfDisposed();
             if (result == null)
             {
                 throw new ArgumentNullException(nameof(result));
@@ -696,6 +708,7 @@ namespace JohBloch.ConfluentKafka.Clients.Services
         /// </summary>
         public void Commit()
         {
+            ThrowIfDisposed();
             try
             {
                 _consumer.Commit();
@@ -713,6 +726,7 @@ namespace JohBloch.ConfluentKafka.Clients.Services
         /// </summary>
         public void Commit<T>(ConsumeResult<string, T> result)
         {
+            ThrowIfDisposed();
             try
             {
                 _consumer.Commit(new[] { result.TopicPartitionOffset });
@@ -730,6 +744,7 @@ namespace JohBloch.ConfluentKafka.Clients.Services
         /// </summary>
         public void Unsubscribe()
         {
+            ThrowIfDisposed();
             try
             {
                 _consumer.Unsubscribe();
@@ -745,25 +760,62 @@ namespace JohBloch.ConfluentKafka.Clients.Services
         /// <summary>
         /// Gets the consumer's current assignment (list of partitions assigned to this consumer).
         /// </summary>
-        public List<TopicPartition> Assignment => _consumer.Assignment;
+        public List<TopicPartition> Assignment
+        {
+            get
+            {
+                ThrowIfDisposed();
+                return _consumer.Assignment;
+            }
+        }
 
         /// <summary>
         /// Gets the current consumer subscription (list of subscribed topics).
         /// </summary>
-        public List<string> Subscription => _consumer.Subscription;
+        public List<string> Subscription
+        {
+            get
+            {
+                ThrowIfDisposed();
+                return _consumer.Subscription;
+            }
+        }
 
         /// <summary>
         /// Disposes the consumer resources.
         /// </summary>
         public void Dispose()
         {
-            if (!_disposed)
+            if (System.Threading.Interlocked.Exchange(ref _disposed, 1) != 0)
             {
-                _consumer?.Close();
-                _consumer?.Dispose();
-                _schemaRegistry?.Dispose();
-                _disposed = true;
-                //
+                return;
+            }
+
+            try
+            {
+                _consumer.Close();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Error during consumer close");
+            }
+
+            try
+            {
+                _consumer.Dispose();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Error during consumer dispose");
+            }
+
+            try
+            {
+                _schemaRegistry.Dispose();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Error during schema registry dispose");
             }
         }
 
