@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-22.04
     
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v4
       with:
         fetch-depth: 0
     
@@ -22,7 +22,12 @@ jobs:
 
     - name: .NET info
       shell: bash
-      run: dotnet --info
+      run: |
+        set -euo pipefail
+        echo "PATH=$PATH"
+        which dotnet || true
+        dotnet --info
+        dotnet --list-sdks
 
     - name: Install librdkafka
       run: sudo apt-get update && sudo apt-get install -y librdkafka-dev
@@ -42,7 +47,25 @@ jobs:
       run: dotnet build --no-restore --configuration Release /p:ContinuousIntegrationBuild=true
 
     - name: Test
-      run: dotnet test ./tests/JohBloch.ConfluentKafka.Clients.Tests.csproj --configuration Release --verbosity normal --blame --logger "trx;LogFileName=test-results.trx"
+      shell: bash
+      env:
+        DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+        DOTNET_NOLOGO: '1'
+      run: |
+        set -euo pipefail
+        mkdir -p ./TestResults
+        dotnet test ./tests/JohBloch.ConfluentKafka.Clients.Tests.csproj \
+          --no-build \
+          --configuration Release \
+          --verbosity normal \
+          --settings ./tests/vstest.runsettings \
+          --results-directory ./TestResults \
+          --logger "trx;LogFileName=test-results.trx" \
+          --diag ./TestResults/vstest.diag.log \
+          --blame-crash \
+          --blame-crash-dump-type full \
+          --blame-hang \
+          --blame-hang-timeout 5m
 
     - name: Snyk monitor (snapshot on main)
       if: github.ref == 'refs/heads/main' && github.event_name == 'push'
@@ -58,7 +81,7 @@ jobs:
       if: success() || failure()
       with:
         name: Test Results
-        path: '**/test-results.trx'
+        path: '**/TestResults/**/test-results.trx'
         reporter: dotnet-trx
 
     - name: Upload TestResults (including blame)
