@@ -8,7 +8,7 @@ This guide demonstrates how to configure OAuth/OIDC authentication for Kafka cli
 - OAuth identity provider (Azure AD, Okta, Auth0, Keycloak, etc.)
 - Client credentials (client ID and client secret)
 
-Note: when `OAuthTokenEndpoint`/`OAuthClientId`/`OAuthClientSecret` are configured, the library will automatically add the needed SASL/OAUTHBEARER settings (`security.protocol`, `sasl.mechanism`, and OIDC token endpoint url) to both producer and consumer configs.
+Note: when `OAuthTokenEndpoint`/`OAuthClientId`/`OAuthClientSecret` are configured, the library will automatically add the needed SASL/OAUTHBEARER settings (including `security.protocol`, `sasl.mechanism`, `sasl.oauthbearer.method=OIDC`, `sasl.oauthbearer.token.endpoint.url`, and `sasl.oauthbearer.client.id`) to both producer and consumer configs.
 
 ## Basic OAuth Configuration
 

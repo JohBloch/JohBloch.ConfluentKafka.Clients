@@ -107,8 +107,9 @@ public class OAuthSecurityTokenProvider : ISecurityTokenProvider
         ValidateOAuthOptionsIfEnabled();
 
         // Use standard librdkafka keys.
-        // We still use the .NET refresh handler to fetch and set tokens.
-        return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        // Note: some clusters validate OIDC config and require sasl.oauthbearer.client.id
+        // when sasl.oauthbearer.method=oidc, even if tokens are provided via the refresh handler.
+        var cfg = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
             ["security.protocol"] = "SASL_SSL",
             ["sasl.mechanism"] = "OAUTHBEARER",
@@ -117,6 +118,19 @@ public class OAuthSecurityTokenProvider : ISecurityTokenProvider
             ["sasl.oauthbearer.method"] = "OIDC",
             ["sasl.oauthbearer.token.endpoint.url"] = _options.OAuthTokenEndpoint!
         };
+
+        // Add OIDC-required client id (and commonly required secret) for brokers/librdkafka validation.
+        // These are still useful even when tokens are set via OAuthBearerSetToken refresh callbacks.
+        cfg["sasl.oauthbearer.client.id"] = _options.OAuthClientId!;
+        cfg["sasl.oauthbearer.client.secret"] = _options.OAuthClientSecret!;
+
+        if (!string.IsNullOrWhiteSpace(_options.OAuthScope))
+        {
+            // librdkafka expects a space-delimited scope string.
+            cfg["sasl.oauthbearer.scope"] = _options.OAuthScope!;
+        }
+
+        return cfg;
     }
 
     private bool IsOAuthEnabled()
