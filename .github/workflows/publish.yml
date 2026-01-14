@@ -35,7 +35,7 @@ jobs:
       run: dotnet build --configuration Release --no-restore /p:ContinuousIntegrationBuild=true
       
     - name: Test
-      run: dotnet test --configuration Release --no-build --verbosity normal --blame
+      run: dotnet test ./tests/JohBloch.ConfluentKafka.Clients.Tests.csproj --configuration Release --no-build --verbosity normal --blame
       
     - name: Pack
       run: dotnet pack ./src/JohBloch.ConfluentKafka.Clients/JohBloch.ConfluentKafka.Clients.csproj --configuration Release --no-build --output ./artifacts
