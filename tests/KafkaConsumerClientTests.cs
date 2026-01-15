@@ -18,6 +18,7 @@ namespace JohBloch.ConfluentKafka.Clients.Tests;
 /// Unit tests for <see cref="KafkaConsumerClient"/> basic behaviors.
 /// </summary>
 public class KafkaConsumerClientTests
+    : DisposableTestBase
 {
     private sealed class FakeTokenProvider : ISecurityTokenProvider
     {
@@ -30,6 +31,13 @@ public class KafkaConsumerClientTests
 
     private sealed class FakeSchemaRegistryFactory : ISchemaRegistryFactory
     {
+        private readonly Action<IDisposable>? _track;
+
+        public FakeSchemaRegistryFactory(Action<IDisposable>? track = null)
+        {
+            _track = track;
+        }
+
         public Confluent.SchemaRegistry.ISchemaRegistryClient CreateClient()
         {
             var cfg = new Confluent.SchemaRegistry.SchemaRegistryConfig
@@ -43,11 +51,14 @@ public class KafkaConsumerClientTests
                 BearerAuthTokenEndpointUrl = "https://example.org/token",
                 BearerAuthIdentityPoolId = "dummy-pool"
             };
-            return new Confluent.SchemaRegistry.CachedSchemaRegistryClient(cfg);
+
+            var client = new Confluent.SchemaRegistry.CachedSchemaRegistryClient(cfg);
+            _track?.Invoke(client);
+            return client;
         }
     }
 
-    private static KafkaConsumerClient CreateClient(
+    private KafkaConsumerClient CreateClient(
         KafkaConsumerOptions? consumerOpts = null,
         SchemaRegistryOptions? registryOpts = null)
     {
@@ -69,12 +80,12 @@ public class KafkaConsumerClientTests
         };
 
         var logger = NullLogger<KafkaConsumerClient>.Instance;
-        return new KafkaConsumerClient(
+        return Track(new KafkaConsumerClient(
             Options.Create(consumerOpts),
             Options.Create(registryOpts),
             new FakeTokenProvider(),
-            new FakeSchemaRegistryFactory(),
-            logger);
+            new FakeSchemaRegistryFactory(TrackDisposable),
+            logger));
     }
 
     /// <summary>

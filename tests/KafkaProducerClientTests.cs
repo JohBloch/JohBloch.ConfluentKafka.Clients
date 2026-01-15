@@ -19,7 +19,7 @@ namespace JohBloch.ConfluentKafka.Clients.Tests;
 /// <summary>
 /// Unit tests for <see cref="KafkaProducerClient"/> covering success, failure, batch, and config helper paths.
 /// </summary>
-public class KafkaProducerClientTests
+public class KafkaProducerClientTests : DisposableTestBase
 {
     private sealed class FakeTokenProvider : ISecurityTokenProvider
     {
@@ -32,10 +32,19 @@ public class KafkaProducerClientTests
 
     private sealed class FakeSchemaRegistryFactory : ISchemaRegistryFactory
     {
+        private readonly Action<IDisposable>? _track;
+
+        public FakeSchemaRegistryFactory(Action<IDisposable>? track = null)
+        {
+            _track = track;
+        }
+
         public ISchemaRegistryClient CreateClient()
         {
             var cfg = new SchemaRegistryConfig { Url = "http://localhost:8081" };
-            return new CachedSchemaRegistryClient(cfg);
+            var client = new CachedSchemaRegistryClient(cfg);
+            _track?.Invoke(client);
+            return client;
         }
     }
 
@@ -51,7 +60,7 @@ public class KafkaProducerClientTests
             CompressionType = "gzip"
         };
         var dict = new Dictionary<string, KafkaProducerOptions> { { "default", opts } };
-        return new KafkaProducerClient(dict, new FakeTokenProvider(), new FakeSchemaRegistryFactory(), NullLogger<KafkaProducerClient>.Instance);
+        return Track(new KafkaProducerClient(dict, new FakeTokenProvider(), new FakeSchemaRegistryFactory(TrackDisposable), NullLogger<KafkaProducerClient>.Instance));
     }
 
     [Fact]
@@ -70,7 +79,7 @@ public class KafkaProducerClientTests
         };
 
         var ex = Assert.Throws<InvalidOperationException>(() =>
-            new KafkaProducerClient(dict, new FakeTokenProvider(), new FakeSchemaRegistryFactory(), NullLogger<KafkaProducerClient>.Instance));
+            new KafkaProducerClient(dict, new FakeTokenProvider(), new FakeSchemaRegistryFactory(TrackDisposable), NullLogger<KafkaProducerClient>.Instance));
 
         Assert.Contains("_dlq_default", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
@@ -97,7 +106,7 @@ public class KafkaProducerClientTests
         };
 
         var ex = Assert.Throws<InvalidOperationException>(() =>
-            new KafkaProducerClient(dict, new FakeTokenProvider(), new FakeSchemaRegistryFactory(), NullLogger<KafkaProducerClient>.Instance));
+            new KafkaProducerClient(dict, new FakeTokenProvider(), new FakeSchemaRegistryFactory(TrackDisposable), NullLogger<KafkaProducerClient>.Instance));
 
         Assert.Contains("_dlq_default", ex.Message, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("expected", ex.Message, StringComparison.OrdinalIgnoreCase);
@@ -124,7 +133,7 @@ public class KafkaProducerClientTests
             }
         };
 
-        _ = new KafkaProducerClient(dict, new FakeTokenProvider(), new FakeSchemaRegistryFactory(), NullLogger<KafkaProducerClient>.Instance);
+        _ = Track(new KafkaProducerClient(dict, new FakeTokenProvider(), new FakeSchemaRegistryFactory(TrackDisposable), NullLogger<KafkaProducerClient>.Instance));
     }
 
     /// <summary>
@@ -578,7 +587,7 @@ public class KafkaProducerClientTests
 
     private static async Task<KafkaResult> InvokeProduceMessageAsync<T>(ConfigurableFakeProducer<T> prod, T value, string key, string topic, Headers? headers = null, CancellationToken ct = default)
     {
-        var client = new KafkaProducerClient(new Dictionary<string, KafkaProducerOptions> { { "default", new KafkaProducerOptions { BootstrapServers = "localhost:9092", ApplicationId = "app-id", Topic = topic } } }, new FakeTokenProvider(), new FakeSchemaRegistryFactory(), NullLogger<KafkaProducerClient>.Instance);
+        using var client = new KafkaProducerClient(new Dictionary<string, KafkaProducerOptions> { { "default", new KafkaProducerOptions { BootstrapServers = "localhost:9092", ApplicationId = "app-id", Topic = topic } } }, new FakeTokenProvider(), new FakeSchemaRegistryFactory(), NullLogger<KafkaProducerClient>.Instance);
         var mi = typeof(KafkaProducerClient).GetMethod("ProduceMessageAsync", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
         Assert.NotNull(mi);
         var task = (Task<KafkaResult>)mi.MakeGenericMethod(typeof(T)).Invoke(client, new object?[] { prod, value, key, topic, headers, "default", ct })!;

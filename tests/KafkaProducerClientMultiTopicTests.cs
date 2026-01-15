@@ -107,14 +107,26 @@ namespace JohBloch.ConfluentKafka.Clients.Tests
     /// </summary>
     internal sealed class SrStub : ISchemaRegistryFactory
     {
+        private readonly Action<IDisposable>? _track;
+
+        public SrStub(Action<IDisposable>? track = null)
+        {
+            _track = track;
+        }
+
         /// <summary>Creates a cached schema registry client.</summary>
-        public ISchemaRegistryClient CreateClient() => new CachedSchemaRegistryClient(new SchemaRegistryConfig { Url = "http://localhost:8081" });
+        public ISchemaRegistryClient CreateClient()
+        {
+            var client = new CachedSchemaRegistryClient(new SchemaRegistryConfig { Url = "http://localhost:8081" });
+            _track?.Invoke(client);
+            return client;
+        }
     }
 
     /// <summary>
     /// Tests verifying routing to default, retry, and DLQ topics for single and batch sends.
     /// </summary>
-    public class KafkaProducerClientMultiTopicTests
+    public class KafkaProducerClientMultiTopicTests : DisposableTestBase
     {
         /// <summary>
         /// Creates a producer client configured with three logical producer keys: default, retry, and dlq.
@@ -128,7 +140,7 @@ namespace JohBloch.ConfluentKafka.Clients.Tests
                 ["dlq"]     = new KafkaProducerOptions { BootstrapServers = "localhost:9092", ApplicationId = "app", Topic = "topic-a-dlq", BatchSizeKB = 1, QueueBufferMaxMessages = 1000, CompressionType = "none" }
             };
             ILogger<KafkaProducerClient> logger = NullLogger<KafkaProducerClient>.Instance;
-            return new KafkaProducerClient(opts, new SecStub(), new SrStub(), logger);
+            return Track(new KafkaProducerClient(opts, new SecStub(), new SrStub(TrackDisposable), logger));
         }
 
         /// <summary>
