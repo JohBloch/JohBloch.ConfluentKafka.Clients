@@ -277,7 +277,7 @@ public class KafkaProducerClientTests
         Assert.Equal(SecurityProtocol.SaslSsl, cfg.SecurityProtocol);
         Assert.Equal(SaslMechanism.OAuthBearer, cfg.SaslMechanism);
         Assert.Equal("app", cfg.ClientId);
-        Assert.Equal("oidc", cfg.Get("sasl.oauthbearer.method"));
+        Assert.Equal("oidc", cfg.FirstOrDefault(kvp => kvp.Key == "sasl.oauthbearer.method").Value);
     }
 
     /// <summary>
@@ -293,8 +293,8 @@ public class KafkaProducerClientTests
         Assert.Equal(SecurityProtocol.SaslSsl, cfg.SecurityProtocol);
         Assert.Equal(SaslMechanism.OAuthBearer, cfg.SaslMechanism);
         Assert.Equal("app-id", cfg.ClientId);
-        Assert.Equal("OAUTHBEARER", cfg.Get("sasl.mechanism"));
-        Assert.Equal("scope=foo", cfg.Get("sasl.oauthbearer.config"));
+        Assert.Equal("OAUTHBEARER", cfg.FirstOrDefault(kvp => kvp.Key == "sasl.mechanism").Value);
+        Assert.Equal("scope=foo", cfg.FirstOrDefault(kvp => kvp.Key == "sasl.oauthbearer.config").Value);
     }
 
     /// <summary>
