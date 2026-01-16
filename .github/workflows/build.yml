@@ -1,3 +1,4 @@
+
 name: Build and Test
 
 on:
@@ -8,7 +9,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     
     steps:
     - uses: actions/checkout@v6
@@ -46,6 +47,48 @@ jobs:
     - name: Build
       run: dotnet build --no-restore --configuration Release /p:ContinuousIntegrationBuild=true
 
+    # ------------------------------------
+    # NEW: Clean NuGet caches + log space
+    # ------------------------------------
+    - name: Cleanup NuGet cache
+      shell: bash
+      run: |
+        echo "=== Disk space BEFORE NuGet cache cleanup ==="
+        df -h
+        
+        echo "=== NuGet Cache Size BEFORE cleanup ==="
+        du -sh ~/.nuget || true
+        
+        echo "Cleaning NuGet caches..."
+        dotnet nuget locals all --clear
+        
+        echo "=== NuGet Cache Size AFTER cleanup ==="
+        du -sh ~/.nuget || true
+        
+        echo "=== Disk space AFTER NuGet cache cleanup ==="
+        df -h
+
+    # ------------------------------------
+    # NEW: disk usage before tests
+    # ------------------------------------
+    - name: Check disk space before test
+      shell: bash
+      run: |
+        echo "=== Disk space (df -h) ==="
+        df -h
+        
+        echo "=== Disk usage in workspace ==="
+        du -sh . || true
+
+        echo "=== Largest directories (top 20) ==="
+        du -Sh . | sort -rh | head -n 20 || true
+
+        echo "=== Disk usage in /home/runner ==="
+        du -sh /home/runner || true
+
+        echo "=== Disk usage in /tmp ==="
+        du -sh /tmp || true
+
     - name: Test
       shell: bash
       env:
@@ -66,6 +109,22 @@ jobs:
           --blame-crash-dump-type full \
           --blame-hang \
           --blame-hang-timeout 5m
+
+    # ------------------------------------
+    # NEW: disk usage after tests
+    # ------------------------------------
+    - name: Check disk space after test
+      if: success() || failure()
+      shell: bash
+      run: |
+        echo "=== Disk space AFTER test (df -h) ==="
+        df -h
+
+        echo "=== Disk usage in workspace after test ==="
+        du -sh . || true
+
+        echo "=== Largest directories (top 20) ==="
+        du -Sh . | sort -rh | head -n 20 || true
 
     - name: Snyk monitor (snapshot on main)
       if: github.ref == 'refs/heads/main' && github.event_name == 'push'
@@ -90,5 +149,4 @@ jobs:
       with:
         name: testresults
         path: '**/TestResults/**'
-      
-
+``
