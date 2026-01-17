@@ -45,7 +45,27 @@ namespace JohBloch.ConfluentKafka.Clients.Services
                 schemaRegistryFactory,
                 logger,
                 globalConfig: null,
-                consumerOverrides: null)
+                consumerOverrides: null,
+                consumerOverride: null)
+        {
+        }
+
+        internal KafkaConsumerClient(
+            IOptions<KafkaConsumerOptions> kafkaConsumerOptions,
+            IOptions<SchemaRegistryOptions> schemaRegistryOptions,
+            ISecurityTokenProvider securityProvider,
+            ISchemaRegistryFactory schemaRegistryFactory,
+            ILogger<KafkaConsumerClient> logger,
+            IConsumer<string, byte[]> consumerOverride)
+            : this(
+                kafkaConsumerOptions,
+                schemaRegistryOptions,
+                securityProvider,
+                schemaRegistryFactory,
+                logger,
+                globalConfig: null,
+                consumerOverrides: null,
+                consumerOverride: consumerOverride)
         {
         }
 
@@ -67,6 +87,27 @@ namespace JohBloch.ConfluentKafka.Clients.Services
             ILogger<KafkaConsumerClient> logger,
             IDictionary<string, string>? globalConfig,
             IDictionary<string, string>? consumerOverrides)
+            : this(
+                kafkaConsumerOptions,
+                schemaRegistryOptions,
+                securityProvider,
+                schemaRegistryFactory,
+                logger,
+                globalConfig,
+                consumerOverrides,
+                consumerOverride: null)
+        {
+        }
+
+        internal KafkaConsumerClient(
+            IOptions<KafkaConsumerOptions> kafkaConsumerOptions,
+            IOptions<SchemaRegistryOptions> schemaRegistryOptions,
+            ISecurityTokenProvider securityProvider,
+            ISchemaRegistryFactory schemaRegistryFactory,
+            ILogger<KafkaConsumerClient> logger,
+            IDictionary<string, string>? globalConfig,
+            IDictionary<string, string>? consumerOverrides,
+            IConsumer<string, byte[]>? consumerOverride)
         {
             ArgumentNullException.ThrowIfNull(logger);
             ArgumentNullException.ThrowIfNull(kafkaConsumerOptions);
@@ -88,7 +129,7 @@ namespace JohBloch.ConfluentKafka.Clients.Services
             _consumerOverrides = consumerOverrides;
 
             // Initialize consumer
-            _consumer = InitializeConsumer();
+            _consumer = consumerOverride ?? InitializeConsumer();
 
             // Subscribe to topics
             if (!string.IsNullOrWhiteSpace(_kafkaConsumerOpts.Topic))
@@ -122,7 +163,29 @@ namespace JohBloch.ConfluentKafka.Clients.Services
                 schemaRegistryFactory,
                 logger,
                 globalConfig: null,
-                perConsumerConfigs: null)
+                perConsumerConfigs: null,
+                consumerOverride: null)
+        {
+        }
+
+        internal KafkaConsumerClient(
+            IDictionary<string, KafkaConsumerOptions> consumerOptions,
+            string consumerKey,
+            IOptions<SchemaRegistryOptions> schemaRegistryOptions,
+            ISecurityTokenProvider securityProvider,
+            ISchemaRegistryFactory schemaRegistryFactory,
+            ILogger<KafkaConsumerClient> logger,
+            IConsumer<string, byte[]> consumerOverride)
+            : this(
+                consumerOptions,
+                consumerKey,
+                schemaRegistryOptions,
+                securityProvider,
+                schemaRegistryFactory,
+                logger,
+                globalConfig: null,
+                perConsumerConfigs: null,
+                consumerOverride: consumerOverride)
         {
         }
 
@@ -146,6 +209,29 @@ namespace JohBloch.ConfluentKafka.Clients.Services
             ILogger<KafkaConsumerClient> logger,
             IDictionary<string, string>? globalConfig,
             IDictionary<string, IDictionary<string, string>>? perConsumerConfigs)
+            : this(
+                consumerOptions,
+                consumerKey,
+                schemaRegistryOptions,
+                securityProvider,
+                schemaRegistryFactory,
+                logger,
+                globalConfig,
+                perConsumerConfigs,
+                consumerOverride: null)
+        {
+        }
+
+        internal KafkaConsumerClient(
+            IDictionary<string, KafkaConsumerOptions> consumerOptions,
+            string consumerKey,
+            IOptions<SchemaRegistryOptions> schemaRegistryOptions,
+            ISecurityTokenProvider securityProvider,
+            ISchemaRegistryFactory schemaRegistryFactory,
+            ILogger<KafkaConsumerClient> logger,
+            IDictionary<string, string>? globalConfig,
+            IDictionary<string, IDictionary<string, string>>? perConsumerConfigs,
+            IConsumer<string, byte[]>? consumerOverride)
         {
             if (consumerOptions == null) throw new ArgumentNullException(nameof(consumerOptions));
             if (string.IsNullOrWhiteSpace(consumerKey)) throw new ArgumentNullException(nameof(consumerKey));
@@ -169,7 +255,7 @@ namespace JohBloch.ConfluentKafka.Clients.Services
             _consumerOverrides = perConsumerConfigs != null && perConsumerConfigs.TryGetValue(consumerKey, out var over) ? over : null;
 
             // Initialize consumer
-            _consumer = InitializeConsumer();
+            _consumer = consumerOverride ?? InitializeConsumer();
 
             // Subscribe to topics if provided
             if (!string.IsNullOrWhiteSpace(_kafkaConsumerOpts.Topic))
