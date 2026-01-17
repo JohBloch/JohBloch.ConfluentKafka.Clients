@@ -1,0 +1,40 @@
+name: Security (Snyk)
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  snyk:
+    runs-on: ubuntu-latest
+    env:
+      SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+
+    steps:
+    - uses: actions/checkout@v6
+      with:
+        fetch-depth: 0
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v5
+      with:
+        dotnet-version: 10.0.x
+
+    - name: Restore dependencies
+      run: dotnet restore
+
+    - name: Snyk test (dependencies)
+      if: env.SNYK_TOKEN != ''
+      uses: snyk/actions/dotnet@master
+      with:
+        command: test
+        args: --all-projects --severity-threshold=high
+
+    - name: Snyk monitor (snapshot on main)
+      if: env.SNYK_TOKEN != '' && github.ref == 'refs/heads/main' && github.event_name == 'push'
+      uses: snyk/actions/dotnet@master
+      with:
+        command: monitor
+        args: --all-projects
