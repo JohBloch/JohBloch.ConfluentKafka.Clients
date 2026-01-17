@@ -59,10 +59,10 @@ public class OAuthSecurityTokenProvider : ISecurityTokenProvider
         try
         {
             _logger.LogInformation("Fetching new OAuth token from {Endpoint}", _options.OAuthTokenEndpoint);
-            var response = await FetchTokenInternalAsync(cancellationToken);
+            OAuthResponse response = await FetchTokenInternalAsync(cancellationToken);
             
             // Default to 1 hour if not provided
-            var expirySeconds = response.ExpiresIn > 0 ? response.ExpiresIn : 3600;
+            int expirySeconds = response.ExpiresIn > 0 ? response.ExpiresIn : 3600;
             
             _cachedToken = new AccessToken(
                 response.AccessToken, 
@@ -90,8 +90,26 @@ public class OAuthSecurityTokenProvider : ISecurityTokenProvider
     /// <inheritdoc />
     public Dictionary<string, string>? GetExtensions()
     {
-        // Can be extended to support 'logicalCluster' or other OAuth extensions
-        return null;
+        // These extensions are used by some brokers (e.g. Confluent Cloud) for OAUTHBEARER routing.
+        // Keys are case-sensitive and must match the broker expectations.
+        if (!IsOAuthEnabled())
+        {
+            return null;
+        }
+
+        var extensions = new Dictionary<string, string>(StringComparer.Ordinal);
+
+        if (!string.IsNullOrWhiteSpace(_options.OAuthLogicalCluster))
+        {
+            extensions["logicalCluster"] = _options.OAuthLogicalCluster.Trim();
+        }
+
+        if (!string.IsNullOrWhiteSpace(_options.OAuthIdentityPoolId))
+        {
+            extensions["identityPoolId"] = _options.OAuthIdentityPoolId.Trim();
+        }
+
+        return extensions.Count == 0 ? null : extensions;
     }
 
     /// <inheritdoc />
@@ -149,9 +167,18 @@ public class OAuthSecurityTokenProvider : ISecurityTokenProvider
         }
 
         var missing = new List<string>(capacity: 3);
-        if (string.IsNullOrWhiteSpace(_options.OAuthTokenEndpoint)) missing.Add(nameof(KafkaClientOptions.OAuthTokenEndpoint));
-        if (string.IsNullOrWhiteSpace(_options.OAuthClientId)) missing.Add(nameof(KafkaClientOptions.OAuthClientId));
-        if (string.IsNullOrWhiteSpace(_options.OAuthClientSecret)) missing.Add(nameof(KafkaClientOptions.OAuthClientSecret));
+        if (string.IsNullOrWhiteSpace(_options.OAuthTokenEndpoint))
+        {
+            missing.Add(nameof(KafkaClientOptions.OAuthTokenEndpoint));
+        }
+        if (string.IsNullOrWhiteSpace(_options.OAuthClientId))
+        {
+            missing.Add(nameof(KafkaClientOptions.OAuthClientId));
+        }
+        if (string.IsNullOrWhiteSpace(_options.OAuthClientSecret))
+        {
+            missing.Add(nameof(KafkaClientOptions.OAuthClientSecret));
+        }
 
         if (missing.Count > 0)
         {
@@ -181,15 +208,15 @@ public class OAuthSecurityTokenProvider : ISecurityTokenProvider
         }
 
         using var content = new FormUrlEncodedContent(formData);
-        using var response = await _httpClient.PostAsync(_options.OAuthTokenEndpoint, content, cancellationToken);
+        using HttpResponseMessage response = await _httpClient.PostAsync(_options.OAuthTokenEndpoint, content, cancellationToken);
         
         if (!response.IsSuccessStatusCode)
         {
-            var errorContent = await response.Content.ReadAsStringAsync(cancellationToken);
+            string errorContent = await response.Content.ReadAsStringAsync(cancellationToken);
             throw new HttpRequestException($"OAuth token request failed: {response.StatusCode}. Details: {errorContent}");
         }
 
-        var result = await response.Content.ReadFromJsonAsync<OAuthResponse>(cancellationToken: cancellationToken);
+        OAuthResponse? result = await response.Content.ReadFromJsonAsync<OAuthResponse>(cancellationToken: cancellationToken);
         return result ?? throw new InvalidOperationException("OAuth response was empty or invalid JSON");
     }
 

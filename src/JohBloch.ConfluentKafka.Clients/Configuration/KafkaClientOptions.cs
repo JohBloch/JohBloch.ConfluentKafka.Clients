@@ -48,6 +48,18 @@ public class KafkaClientOptions
     public string? OAuthScope { get; set; }
 
     /// <summary>
+    /// Optional OAuth bearer token extension: logical cluster id (e.g. Confluent Cloud 'lkc-...').
+    /// When provided, this will be sent as the OAuth OAUTHBEARER token extension key 'logicalCluster'.
+    /// </summary>
+    public string? OAuthLogicalCluster { get; set; }
+
+    /// <summary>
+    /// Optional OAuth bearer token extension: identity pool id (e.g. Confluent Cloud identity pool).
+    /// When provided, this will be sent as the OAuth OAUTHBEARER token extension key 'identityPoolId'.
+    /// </summary>
+    public string? OAuthIdentityPoolId { get; set; }
+
+    /// <summary>
     /// Configuration for specific logged producers (Topic, BatchSize, DLQ settings).
     /// Key is the producer name (e.g., "orders", "audit").
     /// </summary>

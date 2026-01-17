@@ -66,6 +66,9 @@ This example shows how to keep *all Kafka setup isolated in your consuming app* 
         "Kafka__OAuthClientSecret": "YOUR_CLIENT_SECRET",
         "Kafka__OAuthScope": "YOUR_SCOPE",
 
+        "Kafka__OAuthLogicalCluster": "lkc-...",
+        "Kafka__OAuthIdentityPoolId": "pool-...",
+
         "Kafka__Consumer__Topic": "orders",
         "Kafka__Consumer__EnableAutoCommit": "false",
         "Kafka__Consumer__AutoOffsetReset": "Earliest",
@@ -75,7 +78,8 @@ This example shows how to keep *all Kafka setup isolated in your consuming app* 
         "Kafka__SchemaRegistry__ClientId": "YOUR_SR_CLIENT_ID",
         "Kafka__SchemaRegistry__ClientSecret": "YOUR_SR_CLIENT_SECRET",
         "Kafka__SchemaRegistry__Scope": "YOUR_SR_SCOPE",
-        "Kafka__SchemaRegistry__LogicalCluster": "YOUR_SR_LOGICAL_CLUSTER"
+        "Kafka__SchemaRegistry__LogicalCluster": "YOUR_SR_LOGICAL_CLUSTER",
+        "Kafka__SchemaRegistry__IdentityPoolId": "YOUR_SR_IDENTITY_POOL_ID"
     }
 }
 ```
