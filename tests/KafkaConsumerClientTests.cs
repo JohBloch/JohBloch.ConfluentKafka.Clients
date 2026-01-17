@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Collections.Generic;
@@ -20,6 +21,185 @@ namespace JohBloch.ConfluentKafka.Clients.Tests;
 public class KafkaConsumerClientTests
     : DisposableTestBase
 {
+    private sealed class FakeConsumer : Confluent.Kafka.IConsumer<string, byte[]>
+    {
+        private bool _disposed;
+        private readonly List<string> _subscription = new();
+        private readonly List<Confluent.Kafka.TopicPartition> _assignment = new();
+
+        public string Name => nameof(FakeConsumer);
+        public Confluent.Kafka.Handle Handle => null!;
+
+        public List<Confluent.Kafka.TopicPartition> Assignment => _assignment.ToList();
+        public Confluent.Kafka.IConsumerGroupMetadata ConsumerGroupMetadata => null!;
+        public string MemberId => string.Empty;
+        public List<string> Subscription => _subscription.ToList();
+
+        public int AddBrokers(string brokers) => 0;
+
+        public void SetSaslCredentials(string username, string password)
+        {
+            if (_disposed) throw new ObjectDisposedException(nameof(FakeConsumer));
+        }
+
+        public void Assign(Confluent.Kafka.TopicPartition partition)
+        {
+            if (_disposed) throw new ObjectDisposedException(nameof(FakeConsumer));
+            _assignment.Clear();
+            _assignment.Add(partition);
+        }
+
+        public void Assign(Confluent.Kafka.TopicPartitionOffset partition)
+            => Assign(partition.TopicPartition);
+
+        public void Assign(IEnumerable<Confluent.Kafka.TopicPartition> partitions)
+        {
+            if (_disposed) throw new ObjectDisposedException(nameof(FakeConsumer));
+            _assignment.Clear();
+            _assignment.AddRange(partitions);
+        }
+
+        public void Assign(IEnumerable<Confluent.Kafka.TopicPartitionOffset> partitions)
+            => Assign(partitions.Select(p => p.TopicPartition));
+
+        public void Close() => _disposed = true;
+
+        public List<Confluent.Kafka.TopicPartitionOffset> Commit()
+        {
+            if (_disposed) throw new ObjectDisposedException(nameof(FakeConsumer));
+            throw new Confluent.Kafka.KafkaException(new Confluent.Kafka.Error(Confluent.Kafka.ErrorCode.Local_State));
+        }
+
+        public void Commit(Confluent.Kafka.ConsumeResult<string, byte[]> result)
+        {
+            if (_disposed) throw new ObjectDisposedException(nameof(FakeConsumer));
+            throw new Confluent.Kafka.KafkaException(new Confluent.Kafka.Error(Confluent.Kafka.ErrorCode.Local_State));
+        }
+
+        public void Commit(IEnumerable<Confluent.Kafka.TopicPartitionOffset> offsets)
+        {
+            if (_disposed) throw new ObjectDisposedException(nameof(FakeConsumer));
+            throw new Confluent.Kafka.KafkaException(new Confluent.Kafka.Error(Confluent.Kafka.ErrorCode.Local_State));
+        }
+
+        public List<Confluent.Kafka.TopicPartitionOffset> Committed(TimeSpan timeout)
+        {
+            if (_disposed) throw new ObjectDisposedException(nameof(FakeConsumer));
+            return new List<Confluent.Kafka.TopicPartitionOffset>();
+        }
+
+        public List<Confluent.Kafka.TopicPartitionOffset> Committed(IEnumerable<Confluent.Kafka.TopicPartition> partitions, TimeSpan timeout)
+        {
+            if (_disposed) throw new ObjectDisposedException(nameof(FakeConsumer));
+            return partitions.Select(p => new Confluent.Kafka.TopicPartitionOffset(p, Confluent.Kafka.Offset.Unset)).ToList();
+        }
+
+        public Confluent.Kafka.ConsumeResult<string, byte[]> Consume(int millisecondsTimeout)
+            => Consume(TimeSpan.FromMilliseconds(millisecondsTimeout));
+
+        public Confluent.Kafka.ConsumeResult<string, byte[]> Consume(CancellationToken cancellationToken)
+        {
+            if (_disposed) throw new ObjectDisposedException(nameof(FakeConsumer));
+            cancellationToken.ThrowIfCancellationRequested();
+            return null!;
+        }
+
+        public Confluent.Kafka.ConsumeResult<string, byte[]> Consume(TimeSpan timeout)
+        {
+            if (_disposed) throw new ObjectDisposedException(nameof(FakeConsumer));
+            return null!;
+        }
+
+        public void Dispose() => Close();
+
+        public Confluent.Kafka.WatermarkOffsets GetWatermarkOffsets(Confluent.Kafka.TopicPartition topicPartition)
+            => new Confluent.Kafka.WatermarkOffsets(Confluent.Kafka.Offset.Unset, Confluent.Kafka.Offset.Unset);
+
+        public void IncrementalAssign(IEnumerable<Confluent.Kafka.TopicPartition> partitions)
+        {
+            if (_disposed) throw new ObjectDisposedException(nameof(FakeConsumer));
+            foreach (var partition in partitions)
+            {
+                if (!_assignment.Contains(partition))
+                {
+                    _assignment.Add(partition);
+                }
+            }
+        }
+
+        public void IncrementalAssign(IEnumerable<Confluent.Kafka.TopicPartitionOffset> partitions)
+            => IncrementalAssign(partitions.Select(p => p.TopicPartition));
+
+        public void IncrementalUnassign(IEnumerable<Confluent.Kafka.TopicPartition> partitions)
+        {
+            if (_disposed) throw new ObjectDisposedException(nameof(FakeConsumer));
+            foreach (var partition in partitions)
+            {
+                _assignment.RemoveAll(p => p.Equals(partition));
+            }
+        }
+
+        public List<Confluent.Kafka.TopicPartitionOffset> OffsetsForTimes(IEnumerable<Confluent.Kafka.TopicPartitionTimestamp> timestampsToSearch, TimeSpan timeout)
+        {
+            if (_disposed) throw new ObjectDisposedException(nameof(FakeConsumer));
+            return timestampsToSearch.Select(t => new Confluent.Kafka.TopicPartitionOffset(t.TopicPartition, Confluent.Kafka.Offset.Unset)).ToList();
+        }
+
+        public void Pause(IEnumerable<Confluent.Kafka.TopicPartition> partitions)
+        {
+            if (_disposed) throw new ObjectDisposedException(nameof(FakeConsumer));
+        }
+
+        public Confluent.Kafka.Offset Position(Confluent.Kafka.TopicPartition topicPartition)
+        {
+            if (_disposed) throw new ObjectDisposedException(nameof(FakeConsumer));
+            return Confluent.Kafka.Offset.Unset;
+        }
+
+        public Confluent.Kafka.WatermarkOffsets QueryWatermarkOffsets(Confluent.Kafka.TopicPartition topicPartition, TimeSpan timeout)
+            => new Confluent.Kafka.WatermarkOffsets(Confluent.Kafka.Offset.Unset, Confluent.Kafka.Offset.Unset);
+
+        public void Resume(IEnumerable<Confluent.Kafka.TopicPartition> partitions)
+        {
+            if (_disposed) throw new ObjectDisposedException(nameof(FakeConsumer));
+        }
+
+        public void Seek(Confluent.Kafka.TopicPartitionOffset tpo)
+        {
+            if (_disposed) throw new ObjectDisposedException(nameof(FakeConsumer));
+        }
+
+        public void StoreOffset(Confluent.Kafka.TopicPartitionOffset offset)
+        {
+            if (_disposed) throw new ObjectDisposedException(nameof(FakeConsumer));
+        }
+
+        public void StoreOffset(Confluent.Kafka.ConsumeResult<string, byte[]> result)
+        {
+            if (_disposed) throw new ObjectDisposedException(nameof(FakeConsumer));
+        }
+
+        public void Subscribe(IEnumerable<string> topics)
+        {
+            if (_disposed) throw new ObjectDisposedException(nameof(FakeConsumer));
+            _subscription.Clear();
+            _subscription.AddRange(topics.Where(t => !string.IsNullOrWhiteSpace(t)).Distinct());
+        }
+
+        public void Subscribe(string topic) => Subscribe(new[] { topic });
+
+        public void Unassign()
+        {
+            if (_disposed) throw new ObjectDisposedException(nameof(FakeConsumer));
+            _assignment.Clear();
+        }
+
+        public void Unsubscribe()
+        {
+            if (_disposed) throw new ObjectDisposedException(nameof(FakeConsumer));
+            _subscription.Clear();
+        }
+    }
     private sealed class FakeTokenProvider : ISecurityTokenProvider
     {
         public Task<AccessToken> GetAccessTokenAsync(CancellationToken cancellationToken = default)
@@ -85,7 +265,8 @@ public class KafkaConsumerClientTests
             Options.Create(registryOpts),
             new FakeTokenProvider(),
             new FakeSchemaRegistryFactory(TrackDisposable),
-            logger));
+            logger,
+            consumerOverride: new FakeConsumer()));
     }
 
     /// <summary>
@@ -289,8 +470,8 @@ public class KafkaConsumerClientTests
         var client = CreateClient();
         var topics = new[] { "a", "a", "b" };
         var ex = Record.Exception(() => client.Subscribe(topics));
-        // Without a real broker, Subscribe will throw KafkaException.
-        Assert.IsType<Confluent.Kafka.KafkaException>(ex);
+        Assert.Null(ex);
+        Assert.Equal(2, client.Subscription.Count);
     }
 
     /// <summary>
@@ -517,15 +698,14 @@ public class KafkaConsumerClientTests
     [Fact]
     public void PreviewBytes_EqualAndGreaterMax()
     {
-        var client = CreateClient();
         var mi = typeof(KafkaConsumerClient).GetMethod("PreviewBytes", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
         Assert.NotNull(mi);
         var dataEq = new byte[] { 0x01, 0x02, 0x03 };
-        var sEq = mi!.Invoke(client, new object[] { dataEq, 3 }) as string;
+        var sEq = mi!.Invoke(null, new object[] { dataEq, 3 }) as string;
         Assert.False(string.IsNullOrEmpty(sEq));
         Assert.DoesNotContain("...", sEq);
         var dataGt = new byte[] { 0x01, 0x02, 0x03, 0x04 };
-        var sGt = mi.Invoke(client, new object[] { dataGt, 3 }) as string;
+        var sGt = mi.Invoke(null, new object[] { dataGt, 3 }) as string;
         Assert.False(string.IsNullOrEmpty(sGt));
         Assert.Contains("...", sGt);
     }
@@ -538,10 +718,9 @@ public class KafkaConsumerClientTests
     [Fact]
     public void FormatValue_Poco_Truncates()
     {
-        var client = CreateClient();
         var mi = typeof(KafkaConsumerClient).GetMethod("FormatValue", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
         Assert.NotNull(mi);
-        var s = mi!.Invoke(client, new object[] { new Poco(), 10 }) as string;
+        var s = mi!.Invoke(null, new object[] { new Poco(), 10 }) as string;
         Assert.False(string.IsNullOrEmpty(s));
         Assert.EndsWith("...", s);
     }

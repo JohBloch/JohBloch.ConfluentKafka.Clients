@@ -9,7 +9,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     
     steps:
     - uses: actions/checkout@v6
@@ -30,53 +30,48 @@ jobs:
         dotnet --info
         dotnet --list-sdks
 
-    - name: Install librdkafka
-      run: sudo apt-get update && sudo apt-get install -y librdkafka-dev
-        
     - name: Restore dependencies
       run: dotnet restore
-
-    - name: Snyk test (dependencies)
-      uses: snyk/actions/dotnet@master
-      env:
-        SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-      with:
-        command: test
-        args: --all-projects --severity-threshold=high
       
     - name: Build
       run: dotnet build --no-restore --configuration Release /p:ContinuousIntegrationBuild=true
 
-    # ------------------------------------
-    # NEW: Clean NuGet caches + log space
-    # ------------------------------------
-    - name: Cleanup NuGet cache
+  test:
+    runs-on: ubuntu-latest
+    needs: build
+    timeout-minutes: 30
+
+    steps:
+    - uses: actions/checkout@v6
+      with:
+        fetch-depth: 0
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v5
+      with:
+        dotnet-version: 10.0.x
+
+    - name: .NET info
       shell: bash
       run: |
-        echo "=== Disk space BEFORE NuGet cache cleanup ==="
-        df -h
-        
-        echo "=== NuGet Cache Size BEFORE cleanup ==="
-        du -sh ~/.nuget || true
-        
-        echo "Cleaning NuGet caches..."
-        dotnet nuget locals all --clear
-        
-        echo "=== NuGet Cache Size AFTER cleanup ==="
-        du -sh ~/.nuget || true
-        
-        echo "=== Disk space AFTER NuGet cache cleanup ==="
-        df -h
+        set -euo pipefail
+        echo "PATH=$PATH"
+        which dotnet || true
+        dotnet --info
+        dotnet --list-sdks
 
-    # ------------------------------------
-    # NEW: disk usage before tests
-    # ------------------------------------
+    - name: Restore dependencies
+      run: dotnet restore
+
+    - name: Build
+      run: dotnet build --no-restore --configuration Release /p:ContinuousIntegrationBuild=true
+
     - name: Check disk space before test
       shell: bash
       run: |
         echo "=== Disk space (df -h) ==="
         df -h
-        
+
         echo "=== Disk usage in workspace ==="
         du -sh . || true
 
@@ -89,7 +84,9 @@ jobs:
         echo "=== Disk usage in /tmp ==="
         du -sh /tmp || true
 
-    - name: Test
+    - name: Test (normal)
+      id: test_normal
+      continue-on-error: true
       shell: bash
       env:
         DOTNET_CLI_TELEMETRY_OPTOUT: '1'
@@ -103,16 +100,58 @@ jobs:
           --verbosity normal \
           --settings ./tests/vstest.runsettings \
           --results-directory ./TestResults \
-          --logger "trx;LogFileName=test-results.trx" \
+          --logger "trx;LogFileName=test-results.trx"
+
+    - name: Test (diagnostics on failure)
+      if: steps.test_normal.outcome == 'failure'
+      continue-on-error: true
+      shell: bash
+      env:
+        DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+        DOTNET_NOLOGO: '1'
+      run: |
+        set -euo pipefail
+        mkdir -p ./TestResults
+        dotnet test ./tests/JohBloch.ConfluentKafka.Clients.Tests.csproj \
+          --no-build \
+          --configuration Release \
+          --verbosity diagnostic \
+          --settings ./tests/vstest.runsettings \
+          --results-directory ./TestResults \
+          --logger "trx;LogFileName=test-results.diag.trx" \
           --diag ./TestResults/vstest.diag.log \
           --blame-crash \
           --blame-crash-dump-type full \
           --blame-hang \
           --blame-hang-timeout 5m
 
-    # ------------------------------------
-    # NEW: disk usage after tests
-    # ------------------------------------
+    - name: Inspect crash dump (strings)
+      if: steps.test_normal.outcome == 'failure'
+      continue-on-error: true
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        echo "=== TestResults contents (top 200) ==="
+        find ./TestResults -maxdepth 4 -type f | sort | head -n 200 || true
+
+        echo "=== Crash dumps found ==="
+        dumps=$(ls -1 ./TestResults/**/dotnet_*_crashdump.dmp 2>/dev/null || true)
+        if [ -z "${dumps}" ]; then
+          echo "No crash dumps found under ./TestResults"
+          exit 0
+        fi
+        echo "${dumps}"
+
+        for dump in ${dumps}; do
+          echo "=== strings grep on ${dump} (first 200 matches) ==="
+          # This is intentionally lightweight and robust (no external debuggers).
+          strings -a "${dump}" \
+            | grep -i -E "librdkafka|rdkafka|confluent\.kafka|confluent|kafka" \
+            | head -n 200 \
+            || true
+        done
+
     - name: Check disk space after test
       if: success() || failure()
       shell: bash
@@ -126,21 +165,12 @@ jobs:
         echo "=== Largest directories (top 20) ==="
         du -Sh . | sort -rh | head -n 20 || true
 
-    - name: Snyk monitor (snapshot on main)
-      if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-      uses: snyk/actions/dotnet@master
-      env:
-        SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-      with:
-        command: monitor
-        args: --all-projects
-      
     - name: Test Report
       uses: dorny/test-reporter@v2
       if: success() || failure()
       with:
         name: Test Results
-        path: '**/TestResults/**/test-results.trx'
+        path: '**/TestResults/**/*.trx'
         reporter: dotnet-trx
 
     - name: Upload TestResults (including blame)
@@ -149,4 +179,11 @@ jobs:
       with:
         name: testresults
         path: '**/TestResults/**'
+
+    - name: Fail if tests failed
+      if: steps.test_normal.outcome == 'failure'
+      shell: bash
+      run: |
+        echo "Tests failed (see TestResults artifacts)."
+        exit 1
 

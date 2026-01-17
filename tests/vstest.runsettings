@@ -5,9 +5,4 @@
     <ResultsDirectory>./TestResults</ResultsDirectory>
     <TargetFrameworkVersion>net10.0</TargetFrameworkVersion>
   </RunConfiguration>
-  <DataCollectionRunSettings>
-    <DataCollectors>
-      <DataCollector friendlyName="blame" enabled="True" />
-    </DataCollectors>
-  </DataCollectionRunSettings>
 </RunSettings>
