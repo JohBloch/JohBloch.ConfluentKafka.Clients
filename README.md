@@ -3,7 +3,7 @@
 [![Build Status](https://img.shields.io/github/actions/workflow/status/JohBloch/JohBloch.ConfluentKafka.Clients/build.yml?branch=main)](https://github.com/JohBloch/JohBloch.ConfluentKafka.Clients/actions)
 [![NuGet](https://img.shields.io/nuget/v/JohBloch.ConfluentKafka.Clients.svg)](https://www.nuget.org/packages/JohBloch.ConfluentKafka.Clients/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![.NET](https://img.shields.io/badge/.NET-8.0-purple)](https://dotnet.microsoft.com/)
+[![.NET](https://img.shields.io/badge/.NET-8.0%20%7C%2010.0-purple)](https://dotnet.microsoft.com/)
 
 A modern, feature-rich .NET client library for Apache Kafka with Schema Registry support, Dead Letter Queue functionality, and multiple serialization formats.
 
@@ -303,7 +303,8 @@ public class KafkaConsumerOptions
 
 ## Requirements
 
-- .NET 10.0 or later
+- To consume this package: .NET 8.0 or .NET 10.0
+- To build this repo from source: .NET 10.0 SDK (see `global.json`)
 
 ## Local Development (Docker)
 
