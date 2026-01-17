@@ -31,9 +31,6 @@ jobs:
     - name: .NET info
       shell: bash
       run: dotnet --info
-
-    - name: Install librdkafka
-      run: sudo apt-get update && sudo apt-get install -y librdkafka-dev
         
     - name: Restore dependencies
       run: dotnet restore
@@ -41,7 +38,7 @@ jobs:
     - name: Build
       run: dotnet build --configuration Release --no-restore /p:ContinuousIntegrationBuild=true
 
-    - name: Inspect native dependencies (librdkafka)
+    - name: Inspect native dependencies (bundled librdkafka)
       shell: bash
       run: |
         set -euo pipefail
