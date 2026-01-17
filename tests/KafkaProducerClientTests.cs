@@ -638,8 +638,12 @@ public class KafkaProducerClientTests : DisposableTestBase
         {
             if (i++ % 3 == 0)
             {
-                return Task.FromException<DeliveryResult<string, byte[]>>(new ProduceException<string, byte[]>(new Error(ErrorCode.BrokerNotAvailable), new DeliveryResult<string, byte[]>() { Topic = "t" }));
+                return Task.FromException<DeliveryResult<string, byte[]>>(
+                    new ProduceException<string, byte[]>(
+                        new Error(ErrorCode.BrokerNotAvailable),
+                        new DeliveryResult<string, byte[]>() { Topic = "t" }));
             }
+
             return Task.FromResult(new DeliveryResult<string, byte[]>
             {
                 Topic = "test-topic",
@@ -649,9 +653,6 @@ public class KafkaProducerClientTests : DisposableTestBase
                 Key = msg.Key
             });
         };
-
-        var getProducer = typeof(KafkaProducerClient).GetMethod("GetProducer", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
-        var producer = (IProducer<string, byte[]>)getProducer!.MakeGenericMethod(typeof(byte[])).Invoke(client, new object[] { "default", true, (ISerializer<byte[]>)null! })!;
         var dictField = typeof(KafkaProducerClient).GetField("_producers", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
         var dict = (System.Collections.Concurrent.ConcurrentDictionary<(string, Type, bool), object>)dictField!.GetValue(client)!;
         dict[("default", typeof(byte[]), true)] = fake;
@@ -694,8 +695,6 @@ public class KafkaProducerClientTests : DisposableTestBase
                 Key = msg.Key
             };
         };
-        var getProducer = typeof(KafkaProducerClient).GetMethod("GetProducer", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
-        var producer = (IProducer<string, byte[]>)getProducer!.MakeGenericMethod(typeof(byte[])).Invoke(client, new object[] { "default", true, (ISerializer<byte[]>)null! })!;
         var dictField = typeof(KafkaProducerClient).GetField("_producers", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
         var dict = (System.Collections.Concurrent.ConcurrentDictionary<(string, Type, bool), object>)dictField!.GetValue(client)!;
         dict[("default", typeof(byte[]), true)] = fake;
