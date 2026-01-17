@@ -144,6 +144,10 @@ services.AddKafkaClients(options =>
     options.OAuthClientId = configuration["Kafka:OAuth:ClientId"]!;
     options.OAuthClientSecret = configuration["Kafka:OAuth:ClientSecret"]!;
     options.OAuthScope = configuration["Kafka:OAuth:Scope"];
+
+    // Optional token extensions used by some brokers (e.g. Confluent Cloud)
+    options.OAuthLogicalCluster = configuration["Kafka:OAuth:LogicalCluster"];
+    options.OAuthIdentityPoolId = configuration["Kafka:OAuth:IdentityPoolId"];
     
     options.GlobalProducerConfig = new Dictionary<string, string>
     {
@@ -166,7 +170,11 @@ services.AddKafkaClients(options =>
       "TokenEndpoint": "https://your-oauth-provider/oauth/token",
       "ClientId": "your-client-id",
       "ClientSecret": "your-client-secret",
-      "Scope": "kafka"
+            "Scope": "kafka",
+
+            // Optional: Confluent Cloud style OAUTHBEARER extensions
+            "LogicalCluster": "lkc-...",
+            "IdentityPoolId": "pool-..."
     }
   }
 }
@@ -178,7 +186,7 @@ The library uses Confluent.Kafka's OAuth bearer token refresh callbacks for both
 
 - Tokens are cached in-memory and refreshed before expiration.
 - If OAuth is partially configured (some OAuth fields are present) but required settings are missing, the default provider throws an `InvalidOperationException` to fail fast.
-- You can replace `ISecurityTokenProvider` with your own implementation if you need non-standard flows, custom extensions (e.g. `logicalCluster`), or different caching.
+- You can replace `ISecurityTokenProvider` with your own implementation if you need non-standard flows, additional custom extensions beyond `logicalCluster`/`identityPoolId`, or different caching.
 
 ## Testing OAuth Configuration
 

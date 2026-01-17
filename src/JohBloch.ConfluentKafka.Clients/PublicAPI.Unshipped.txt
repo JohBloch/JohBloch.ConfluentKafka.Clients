@@ -16,3 +16,7 @@ JohBloch.ConfluentKafka.Clients.Models.KafkaResult.DlqSuccess.get -> bool
 JohBloch.ConfluentKafka.Clients.Models.KafkaResult.DlqSuccess.set -> void
 JohBloch.ConfluentKafka.Clients.Models.KafkaResult.DlqTopic.get -> string?
 JohBloch.ConfluentKafka.Clients.Models.KafkaResult.DlqTopic.set -> void
+JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.OAuthIdentityPoolId.get -> string?
+JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.OAuthIdentityPoolId.set -> void
+JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.OAuthLogicalCluster.get -> string?
+JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.OAuthLogicalCluster.set -> void
