@@ -125,6 +125,33 @@ jobs:
           --blame-hang \
           --blame-hang-timeout 5m
 
+    - name: Inspect crash dump (strings)
+      if: steps.test_normal.outcome == 'failure'
+      continue-on-error: true
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        echo "=== TestResults contents (top 200) ==="
+        find ./TestResults -maxdepth 4 -type f | sort | head -n 200 || true
+
+        echo "=== Crash dumps found ==="
+        dumps=$(ls -1 ./TestResults/**/dotnet_*_crashdump.dmp 2>/dev/null || true)
+        if [ -z "${dumps}" ]; then
+          echo "No crash dumps found under ./TestResults"
+          exit 0
+        fi
+        echo "${dumps}"
+
+        for dump in ${dumps}; do
+          echo "=== strings grep on ${dump} (first 200 matches) ==="
+          # This is intentionally lightweight and robust (no external debuggers).
+          strings -a "${dump}" \
+            | grep -i -E "librdkafka|rdkafka|confluent\.kafka|confluent|kafka" \
+            | head -n 200 \
+            || true
+        done
+
     - name: Check disk space after test
       if: success() || failure()
       shell: bash
