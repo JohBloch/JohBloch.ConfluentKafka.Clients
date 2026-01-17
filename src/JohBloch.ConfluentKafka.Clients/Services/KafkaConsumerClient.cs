@@ -214,11 +214,14 @@ namespace JohBloch.ConfluentKafka.Clients.Services
             // Only attach OAuth refresh handler when OAuth is explicitly enabled.
             if (config.SaslMechanism == SaslMechanism.OAuthBearer)
             {
-                consumerBuilder.SetOAuthBearerTokenRefreshHandler(async (consumer, _) =>
+                consumerBuilder.SetOAuthBearerTokenRefreshHandler((consumer, _) =>
                 {
                     try
                     {
-                        var token = await _securityProvider.GetAccessTokenAsync(CancellationToken.None);
+                        var token = _securityProvider.GetAccessTokenAsync(CancellationToken.None)
+                            .GetAwaiter()
+                            .GetResult();
+
                         var extensions = _securityProvider.GetExtensions() ?? new Dictionary<string, string>();
                         var nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
                         var expMs = token.ExpiresOn.ToUnixTimeMilliseconds();
@@ -234,7 +237,13 @@ namespace JohBloch.ConfluentKafka.Clients.Services
                     catch (Exception ex)
                     {
                         _logger.LogError(ex, "Failed to refresh OAuth token for Kafka consumer");
-                        consumer.OAuthBearerSetTokenFailure($"Token refresh failed: {ex.Message}");
+                        try
+                        {
+                            consumer.OAuthBearerSetTokenFailure($"Token refresh failed: {ex.Message}");
+                        }
+                        catch
+                        {
+                        }
                     }
                 });
             }
