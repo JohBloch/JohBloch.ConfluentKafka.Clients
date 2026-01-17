@@ -303,7 +303,7 @@ public class KafkaConsumerOptions
 
 ## Requirements
 
-- .NET 8.0 or later
+- .NET 10.0 or later
 
 ## Local Development (Docker)
 

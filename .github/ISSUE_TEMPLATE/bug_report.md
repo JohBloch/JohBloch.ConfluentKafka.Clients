@@ -33,7 +33,7 @@ If applicable, paste the error message or stack trace here
 
 **Environment:**
  - OS: [e.g. Windows 11, Ubuntu 22.04]
- - .NET Version: [e.g. 8.0.1]
+ - .NET Version: [e.g. 10.0.1]
  - Library Version: [e.g. 1.0.0]
  - Kafka Version: [e.g. 3.6.0]
  - Schema Registry Version: [if applicable]

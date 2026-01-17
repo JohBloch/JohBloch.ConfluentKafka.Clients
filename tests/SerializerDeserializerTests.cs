@@ -20,12 +20,12 @@ namespace JohBloch.ConfluentKafka.Clients.Tests;
 /// <summary>
 /// Unit tests for serializers and deserializers (Avro, JSON, Protobuf).
 /// </summary>
-public class SerializerDeserializerTests
+public class SerializerDeserializerTests : DisposableTestBase
 {
-    private static ISchemaRegistryClient CreateFakeSchemaRegistry()
+    private ISchemaRegistryClient CreateFakeSchemaRegistry()
     {
         var config = new SchemaRegistryConfig { Url = "http://localhost:8081" };
-        return new CachedSchemaRegistryClient(config);
+        return Track(new CachedSchemaRegistryClient(config));
     }
 
     #region JSON Tests

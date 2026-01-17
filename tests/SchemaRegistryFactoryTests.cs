@@ -24,10 +24,9 @@ namespace JohBloch.ConfluentKafka.Clients.Tests
             });
 
             var factory = new SchemaRegistryFactory(opts);
-            ISchemaRegistryClient client = factory.CreateClient();
+            using var client = factory.CreateClient();
 
             Assert.NotNull(client);
-            client.Dispose();
         }
 
         /// <summary>

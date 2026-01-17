@@ -20,6 +20,7 @@ namespace JohBloch.ConfluentKafka.Clients.Tests;
 /// Unit tests for Dead Letter Queue functionality in <see cref="KafkaProducerClient"/>.
 /// </summary>
 public class DeadLetterQueueTests
+    : DisposableTestBase
 {
     private sealed class FakeTokenProvider : ISecurityTokenProvider
     {
@@ -32,10 +33,20 @@ public class DeadLetterQueueTests
 
     private sealed class FakeSchemaRegistryFactory : ISchemaRegistryFactory
     {
+        private readonly Action<IDisposable>? _track;
+
+        public FakeSchemaRegistryFactory(Action<IDisposable>? track = null)
+        {
+            _track = track;
+        }
+
         public ISchemaRegistryClient CreateClient()
         {
             var cfg = new SchemaRegistryConfig { Url = "http://localhost:8081" };
-            return new CachedSchemaRegistryClient(cfg);
+
+            var client = new CachedSchemaRegistryClient(cfg);
+            _track?.Invoke(client);
+            return client;
         }
     }
 
@@ -58,12 +69,12 @@ public class DeadLetterQueueTests
             ["default"] = opts
         };
 
-        return new KafkaProducerClient(
+        return Track(new KafkaProducerClient(
             producerOptions,
             new FakeTokenProvider(),
-            new FakeSchemaRegistryFactory(),
+            new FakeSchemaRegistryFactory(TrackDisposable),
             NullLogger<KafkaProducerClient>.Instance
-        );
+        ));
     }
 
     [Fact]

@@ -42,7 +42,7 @@ Enhancement suggestions are tracked as GitHub issues. When creating an enhanceme
 
 ### Prerequisites
 
-* .NET 8.0 SDK or later
+* .NET 10.0 SDK or later
 * Git
 
 ### Building

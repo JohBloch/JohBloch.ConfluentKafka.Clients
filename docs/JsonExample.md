@@ -6,7 +6,7 @@ This guide demonstrates how to produce and consume JSON-serialized messages usin
 
 - Kafka cluster with Schema Registry
 - NuGet package: `JohBloch.ConfluentKafka.Clients`
-- System.Text.Json (included in .NET 8)
+- System.Text.Json (included in .NET)
 
 ## Define Your Model
 
