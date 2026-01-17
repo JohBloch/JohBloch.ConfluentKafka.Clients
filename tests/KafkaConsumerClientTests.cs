@@ -517,15 +517,14 @@ public class KafkaConsumerClientTests
     [Fact]
     public void PreviewBytes_EqualAndGreaterMax()
     {
-        var client = CreateClient();
         var mi = typeof(KafkaConsumerClient).GetMethod("PreviewBytes", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
         Assert.NotNull(mi);
         var dataEq = new byte[] { 0x01, 0x02, 0x03 };
-        var sEq = mi!.Invoke(client, new object[] { dataEq, 3 }) as string;
+        var sEq = mi!.Invoke(null, new object[] { dataEq, 3 }) as string;
         Assert.False(string.IsNullOrEmpty(sEq));
         Assert.DoesNotContain("...", sEq);
         var dataGt = new byte[] { 0x01, 0x02, 0x03, 0x04 };
-        var sGt = mi.Invoke(client, new object[] { dataGt, 3 }) as string;
+        var sGt = mi.Invoke(null, new object[] { dataGt, 3 }) as string;
         Assert.False(string.IsNullOrEmpty(sGt));
         Assert.Contains("...", sGt);
     }
@@ -538,10 +537,9 @@ public class KafkaConsumerClientTests
     [Fact]
     public void FormatValue_Poco_Truncates()
     {
-        var client = CreateClient();
         var mi = typeof(KafkaConsumerClient).GetMethod("FormatValue", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
         Assert.NotNull(mi);
-        var s = mi!.Invoke(client, new object[] { new Poco(), 10 }) as string;
+        var s = mi!.Invoke(null, new object[] { new Poco(), 10 }) as string;
         Assert.False(string.IsNullOrEmpty(s));
         Assert.EndsWith("...", s);
     }
