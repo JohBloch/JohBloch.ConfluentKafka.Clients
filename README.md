@@ -84,6 +84,65 @@ This example shows how to keep *all Kafka setup isolated in your consuming app* 
 }
 ```
 
+### Schema Registry OAuth configuration (clarified)
+
+You may configure OAuth credentials specifically for Schema Registry or provide top-level OAuth values for all Kafka-related components. Precedence and exact keys are below.
+
+Precedence (highest → lowest):
+
+1. `Kafka:SchemaRegistry:*` (explicit schema-registry settings)
+2. Top-level `Kafka__OAuth*` (global OAuth settings)
+3. Missing values will cause validation errors when OAuth is enabled
+
+Exact configuration keys (JSON form shown; equivalent environment variable names use `__`):
+
+- Schema Registry specific (preferred):
+
+```json
+{
+    "Kafka": {
+        "SchemaRegistry": {
+            "Url": "https://YOUR_SCHEMA_REGISTRY",
+            "TokenEndpointUrl": "https://YOUR_IDP/oauth/token",
+            "ClientId": "YOUR_SR_CLIENT_ID",
+            "ClientSecret": "YOUR_SR_CLIENT_SECRET",
+            "Scope": "YOUR_SR_SCOPE",
+            "LogicalCluster": "lkc-...",
+            "IdentityPoolId": "YOUR_SR_IDENTITY_POOL_ID"
+        }
+    }
+}
+```
+
+- Top-level OAuth fallback:
+
+```json
+{
+    "Kafka": {
+        "OAuthTokenEndpoint": "https://YOUR_IDP/oauth/token",
+        "OAuthClientId": "YOUR_CLIENT_ID",
+        "OAuthClientSecret": "YOUR_CLIENT_SECRET",
+        "OAuthScope": "YOUR_SCOPE",
+        "OAuthLogicalCluster": "lkc-...",
+        "OAuthIdentityPoolId": "pool-..."
+    }
+}
+```
+
+How the library uses these values:
+
+- The DI mapping prefers `Kafka:SchemaRegistry:*` values; when any of those are not set the library will fall back to the corresponding top-level `Kafka__OAuth*` value.
+- You can also explicitly `PostConfigure<SchemaRegistryOptions>` (see `Program.cs`) to override either source.
+- If OAuth appears enabled (token endpoint, client id or secret present) but required fields are missing, the provider will throw an informative validation error.
+
+Environment variables equivalent (examples):
+
+- `Kafka__SchemaRegistry__ClientId` → `SchemaRegistryOptions.ClientId`
+- `Kafka__SchemaRegistry__ClientSecret` → `SchemaRegistryOptions.ClientSecret`
+- `Kafka__SchemaRegistry__TokenEndpointUrl` → `SchemaRegistryOptions.TokenEndpointUrl`
+- `Kafka__OAuthClientId` → top-level OAuth client id (fallback)
+
+
 #### `Program.cs` (Azure Functions isolated)
 
 ```csharp
