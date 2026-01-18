@@ -57,7 +57,43 @@ public static class ServiceCollectionExtensions
         // 3. Map simplified options to SchemaRegistryOptions
         services.AddOptions<SchemaRegistryOptions>().Configure<IOptions<KafkaClientOptions>>((srOpts, clientOpts) =>
         {
-            srOpts.Url = clientOpts.Value.SchemaRegistryUrl;
+            // Prefer explicit SchemaRegistry-specific settings (e.g. Kafka__SchemaRegistry__ClientId)
+            // if they are present. Otherwise fall back to the top-level Kafka OAuth settings
+            // (e.g. Kafka__OAuthClientId).
+            if (string.IsNullOrWhiteSpace(srOpts.Url))
+            {
+                srOpts.Url = clientOpts.Value.SchemaRegistryUrl;
+            }
+
+            if (string.IsNullOrWhiteSpace(srOpts.TokenEndpointUrl))
+            {
+                srOpts.TokenEndpointUrl = clientOpts.Value.OAuthTokenEndpoint ?? string.Empty;
+            }
+
+            if (string.IsNullOrWhiteSpace(srOpts.ClientId))
+            {
+                srOpts.ClientId = clientOpts.Value.OAuthClientId ?? string.Empty;
+            }
+
+            if (string.IsNullOrWhiteSpace(srOpts.ClientSecret))
+            {
+                srOpts.ClientSecret = clientOpts.Value.OAuthClientSecret ?? string.Empty;
+            }
+
+            if (string.IsNullOrWhiteSpace(srOpts.Scope))
+            {
+                srOpts.Scope = clientOpts.Value.OAuthScope ?? string.Empty;
+            }
+
+            if (string.IsNullOrWhiteSpace(srOpts.LogicalCluster))
+            {
+                srOpts.LogicalCluster = clientOpts.Value.OAuthLogicalCluster ?? string.Empty;
+            }
+
+            if (string.IsNullOrWhiteSpace(srOpts.IdentityPoolId))
+            {
+                srOpts.IdentityPoolId = clientOpts.Value.OAuthIdentityPoolId ?? string.Empty;
+            }
         });
 
         // 4. Register Infrastructure Services
