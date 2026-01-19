@@ -75,7 +75,7 @@ jobs:
       uses: actions/upload-artifact@v6
       with:
         name: testresults
-        path: '**/TestResults/**'
+        path: TestResults/
       
     - name: Pack
       run: dotnet pack ./src/JohBloch.ConfluentKafka.Clients/JohBloch.ConfluentKafka.Clients.csproj --configuration Release --no-build --output ./artifacts
