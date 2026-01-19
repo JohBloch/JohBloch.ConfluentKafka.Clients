@@ -14,6 +14,8 @@ namespace JohBloch.ConfluentKafka.Clients.Services
         /// </summary>
         private readonly SchemaRegistryOptions _srOptions;
 
+        private readonly ILogger<SchemaRegistryFactory>? _logger;
+
         /// <summary>
         /// Initializes a new instance of the <see cref="SchemaRegistryFactory"/> class.
         /// </summary>
@@ -26,6 +28,17 @@ namespace JohBloch.ConfluentKafka.Clients.Services
                 throw new ArgumentNullException(nameof(schemaRegistryOptions));
 
             _srOptions = schemaRegistryOptions.Value;
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="SchemaRegistryFactory"/> class.
+        /// </summary>
+        /// <param name="schemaRegistryOptions">Strongly-typed options for Schema Registry configuration.</param>
+        /// <param name="logger">Logger instance (never logs secrets).</param>
+        public SchemaRegistryFactory(IOptions<SchemaRegistryOptions> schemaRegistryOptions, ILogger<SchemaRegistryFactory> logger)
+            : this(schemaRegistryOptions)
+        {
+            _logger = logger;
         }
 
         /// <summary>
@@ -49,6 +62,20 @@ namespace JohBloch.ConfluentKafka.Clients.Services
                 !string.IsNullOrWhiteSpace(_srOptions.ClientId) &&
                 !string.IsNullOrWhiteSpace(_srOptions.ClientSecret))
             {
+                _logger?.LogInformation(
+                    "Schema Registry OAuth enabled. Url={Url} TokenEndpointUrl={TokenEndpointUrl} ScopeConfigured={ScopeConfigured} LogicalClusterConfigured={LogicalClusterConfigured} IdentityPoolIdConfigured={IdentityPoolIdConfigured}",
+                    _srOptions.Url,
+                    _srOptions.TokenEndpointUrl,
+                    !string.IsNullOrWhiteSpace(_srOptions.Scope),
+                    !string.IsNullOrWhiteSpace(_srOptions.LogicalCluster),
+                    !string.IsNullOrWhiteSpace(_srOptions.IdentityPoolId));
+
+                if (string.IsNullOrWhiteSpace(_srOptions.LogicalCluster) || string.IsNullOrWhiteSpace(_srOptions.IdentityPoolId))
+                {
+                    _logger?.LogWarning(
+                        "Schema Registry OAuth is configured but LogicalCluster and/or IdentityPoolId is empty. Some environments (e.g. Confluent Cloud IAM/OIDC) require these for principal mapping; a 401 'User Identity not found' can indicate a missing or incorrect value.");
+                }
+
                 config.BearerAuthCredentialsSource = BearerAuthCredentialsSource.OAuthBearer;
                 config.BearerAuthClientId = _srOptions.ClientId;
                 config.BearerAuthClientSecret = _srOptions.ClientSecret;
@@ -56,6 +83,10 @@ namespace JohBloch.ConfluentKafka.Clients.Services
                 config.BearerAuthLogicalCluster = _srOptions.LogicalCluster;
                 config.BearerAuthTokenEndpointUrl = _srOptions.TokenEndpointUrl;
                 config.BearerAuthIdentityPoolId = _srOptions.IdentityPoolId;
+            }
+            else
+            {
+                _logger?.LogInformation("Schema Registry OAuth disabled; creating client without bearer auth. Url={Url}", _srOptions.Url);
             }
 
             return new CachedSchemaRegistryClient(config);

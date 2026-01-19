@@ -28,6 +28,16 @@ namespace JohBloch.ConfluentKafka.Clients.Services.Serialization.Avro
                 var deserializer = new AsyncSchemaRegistryDeserializer<T>(_schemaRegistry);
                 return await deserializer.DeserializeAsync(data, false, context);
             }
+            catch (SchemaRegistryException ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "Failed to deserialize Avro message from topic {Topic}. Schema Registry request failed (error code: {ErrorCode}). " +
+                    "If this is 401, verify Schema Registry auth settings (Kafka__SchemaRegistry__TokenEndpointUrl/ClientId/ClientSecret/Scope and, when applicable, LogicalCluster/IdentityPoolId).",
+                    context.Topic,
+                    ex.ErrorCode);
+                throw;
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to deserialize Avro message from topic {Topic}", context.Topic);

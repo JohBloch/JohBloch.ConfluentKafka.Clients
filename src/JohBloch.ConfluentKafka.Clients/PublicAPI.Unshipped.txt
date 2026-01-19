@@ -20,3 +20,4 @@ JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.OAuthIdentityPo
 JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.OAuthIdentityPoolId.set -> void
 JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.OAuthLogicalCluster.get -> string?
 JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.OAuthLogicalCluster.set -> void
+JohBloch.ConfluentKafka.Clients.Services.SchemaRegistryFactory.SchemaRegistryFactory(Microsoft.Extensions.Options.IOptions<JohBloch.ConfluentKafka.Clients.Models.SchemaRegistryOptions!>! schemaRegistryOptions, Microsoft.Extensions.Logging.ILogger<JohBloch.ConfluentKafka.Clients.Services.SchemaRegistryFactory!>! logger) -> void
