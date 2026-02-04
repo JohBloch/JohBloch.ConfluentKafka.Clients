@@ -1,67 +1,57 @@
 param(
     [ValidateSet('Release','Debug')]
-    [string]$Configuration = 'Release'
+    [string]$Configuration = 'Release',
+
+    # Project path relative to repo root (or absolute). If omitted, defaults to the main package project.
+    [string]$Project,
+
+    # Generate baselines for all csproj files under src/.
+    [switch]$All
 )
 
 $ErrorActionPreference = 'Stop'
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
-$project = Join-Path $repoRoot 'src\JohBloch.ConfluentKafka.Clients\JohBloch.ConfluentKafka.Clients.csproj'
-$projectDir = Split-Path -Parent $project
 
-$shipped = Join-Path $projectDir 'PublicAPI.Shipped.txt'
-$unshipped = Join-Path $projectDir 'PublicAPI.Unshipped.txt'
+if (-not $Project -and -not $All) {
+    $Project = 'src\JohBloch.ConfluentKafka.Clients\JohBloch.ConfluentKafka.Clients.csproj'
+}
 
-# Start from valid empty Public API files.
-# Note: PublicApiAnalyzers treats unknown lines as declared symbols (RS0017),
-# so do not add comments.
-Set-Content -LiteralPath $shipped -Value @(
-    '#nullable enable'
-) -Encoding UTF8
+function Resolve-ProjectPath([string]$p) {
+    if ([System.IO.Path]::IsPathRooted($p)) {
+        return $p
+    }
+    return Join-Path $repoRoot $p
+}
 
-Set-Content -LiteralPath $unshipped -Value @(
-    '#nullable enable'
-) -Encoding UTF8
+$projects = @()
+if ($All) {
+    $projects = Get-ChildItem -LiteralPath (Join-Path $repoRoot 'src') -Recurse -Filter '*.csproj' |
+        Select-Object -ExpandProperty FullName
+} else {
+    $projects = @(Resolve-ProjectPath $Project)
+}
 
-$logDir = Join-Path $repoRoot '.tmp'
-New-Item -ItemType Directory -Force -Path $logDir | Out-Null
-$logPath = Join-Path $logDir 'publicapi-build.log'
+foreach ($project in $projects) {
+    $projectName = [System.IO.Path]::GetFileNameWithoutExtension($project)
+    Write-Host "Generating Public API baseline for $projectName..." -ForegroundColor Cyan
 
-Write-Host "Building to capture Public API signatures..." -ForegroundColor Cyan
+    $generatorProject = Join-Path $repoRoot 'tools\PublicApiBaselineGenerator\PublicApiBaselineGenerator.csproj'
+    $solutionPath = Join-Path $repoRoot 'JohBloch.ConfluentKafka.Clients.sln'
 
-# Build and capture analyzer output. We keep normal build output, then parse the RS0016 messages.
-# Note: We intentionally do not set /p:ContinuousIntegrationBuild here; CI already does.
-& dotnet build $project -c $Configuration 2>&1 | Tee-Object -FilePath $logPath | Out-Host
+    if (-not (Test-Path -LiteralPath $generatorProject)) {
+        throw "Baseline generator project not found: $generatorProject"
+    }
+    if (-not (Test-Path -LiteralPath $solutionPath)) {
+        throw "Solution not found: $solutionPath"
+    }
 
-# Extract suggested API lines.
-# PublicApiAnalyzers typically emits guidance like:
-#   error RS0016: Symbol 'X' is not declared in the public API files. Add the following line to 'PublicAPI.Shipped.txt':
-#   X
-$lines = Get-Content -LiteralPath $logPath
-
-$apiLines = New-Object System.Collections.Generic.List[string]
-for ($i = 0; $i -lt $lines.Count; $i++) {
-    $line = $lines[$i]
-
-    if ($line -match 'RS0016' -and $line -match "Add the following line to.*PublicAPI\\.(Shipped|Unshipped)\\.txt") {
-        # Next non-empty line is the signature
-        for ($j = $i + 1; $j -lt $lines.Count; $j++) {
-            $sig = $lines[$j].Trim()
-            if ($sig.Length -eq 0) { continue }
-            if ($sig -match '^(error|warning)\s+RS\d{4}') { break }
-            $apiLines.Add($sig)
-            break
-        }
+    # Use the generator tool to write PublicAPI.Shipped.txt and PublicAPI.Unshipped.txt.
+    # This avoids relying on analyzer RS0016 suggestions, which requires baselines to exist first.
+    & dotnet run --project $generatorProject -- --solution $solutionPath --project $projectName --configuration $Configuration
+    if ($LASTEXITCODE -ne 0) {
+        throw "Baseline generator failed for project '$projectName' (exit code $LASTEXITCODE)."
     }
 }
 
-if ($apiLines.Count -eq 0) {
-    Write-Warning "No RS0016 suggested API lines were found in $logPath. The analyzer message format may have changed. Open the log and update the parser."
-    exit 1
-}
-
-$apiLines = $apiLines | Sort-Object -Unique
-Add-Content -LiteralPath $shipped -Value $apiLines -Encoding UTF8
-
-Write-Host "Wrote $($apiLines.Count) API lines to $shipped" -ForegroundColor Green
-Write-Host "Unshipped left empty. Move new APIs there for next release." -ForegroundColor Green
+Write-Host "Unshipped left empty for all projects. Move new APIs there for next release." -ForegroundColor Green

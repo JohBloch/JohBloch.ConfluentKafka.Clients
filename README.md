@@ -2,6 +2,9 @@
 
 [![Build Status](https://img.shields.io/github/actions/workflow/status/JohBloch/JohBloch.ConfluentKafka.Clients/build.yml?branch=main)](https://github.com/JohBloch/JohBloch.ConfluentKafka.Clients/actions)
 [![NuGet](https://img.shields.io/nuget/v/JohBloch.ConfluentKafka.Clients.svg)](https://www.nuget.org/packages/JohBloch.ConfluentKafka.Clients/)
+[![NuGet](https://img.shields.io/nuget/v/JohBloch.ConfluentKafka.Clients.Core.svg)](https://www.nuget.org/packages/JohBloch.ConfluentKafka.Clients.Core/)
+[![NuGet](https://img.shields.io/nuget/v/JohBloch.ConfluentKafka.Clients.Consumer.svg)](https://www.nuget.org/packages/JohBloch.ConfluentKafka.Clients.Consumer/)
+[![NuGet](https://img.shields.io/nuget/v/JohBloch.ConfluentKafka.Clients.Producer.svg)](https://www.nuget.org/packages/JohBloch.ConfluentKafka.Clients.Producer/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![.NET](https://img.shields.io/badge/.NET-8.0%20%7C%2010.0-purple)](https://dotnet.microsoft.com/)
 
@@ -39,9 +42,26 @@ A modern, feature-rich .NET client library for Apache Kafka with Schema Registry
 
 ## Installation
 
+Choose either the convenience package (everything included) or pick only the components you need.
+
+### Convenience package (recommended)
+
 ```bash
 dotnet add package JohBloch.ConfluentKafka.Clients
 ```
+
+### Granular packages
+
+```bash
+dotnet add package JohBloch.ConfluentKafka.Clients.Core
+dotnet add package JohBloch.ConfluentKafka.Clients.Consumer
+dotnet add package JohBloch.ConfluentKafka.Clients.Producer
+```
+
+## Build & CI
+
+- The .NET SDK version is pinned via `global.json`. GitHub Actions uses that file to select the SDK.
+- To enable Snyk scanning in CI, add a repository secret named `SNYK_TOKEN`.
 
 ## Quick Start
 
@@ -398,11 +418,26 @@ docker compose down -v
 
 ## Dependencies
 
-- Confluent.Kafka 2.13.0
-- Confluent.SchemaRegistry 2.13.0
-- Chr.Avro.Confluent 10.12.0
-- protobuf-net 3.2.56
-- Microsoft.Extensions.Logging 9.0.0
+Dependencies are split per NuGet package to keep consumers lightweight.
+
+- **JohBloch.ConfluentKafka.Clients** (convenience package)
+    - References `JohBloch.ConfluentKafka.Clients.Core`, `.Consumer`, and `.Producer` (brings their dependencies transitively).
+
+- **JohBloch.ConfluentKafka.Clients.Core**
+    - Confluent.Kafka `2.13.0`
+    - Confluent.SchemaRegistry `2.13.0`
+    - JohBloch.ConfluentKafka.SchemaRegistryExtClient `1.1.0`
+    - Microsoft.Extensions.* (version depends on target framework)
+        - net8.0: Http `9.0.0`, Logging/Options `10.0.2`
+        - net10.0: Http/Logging/Options `10.0.1`
+
+- **JohBloch.ConfluentKafka.Clients.Consumer**
+    - Chr.Avro.Confluent `10.12.0`
+    - protobuf-net `3.2.56`
+
+- **JohBloch.ConfluentKafka.Clients.Producer**
+    - Chr.Avro.Confluent `10.12.0`
+    - protobuf-net `3.2.56`
 
 ## Building from Source
 
@@ -424,17 +459,10 @@ All tests should pass in approximately 50 seconds.
 
 ```
 ├── src/
-│   └── JohBloch.ConfluentKafka.Clients/
-│       ├── Interfaces/              # Public interfaces
-│       ├── Models/                  # Data models
-│       ├── Services/                # Core implementations
-│       │   ├── Serialization/       # Organized by schema type
-│       │   │   ├── Avro/
-│       │   │   ├── Json/
-│       │   │   └── Protobuf/
-│       │   ├── KafkaProducerClient.cs
-│       │   └── KafkaConsumerClient.cs
-│       └── Security/                # Security providers
+│   ├── JohBloch.ConfluentKafka.Clients/            # Convenience package (Core + Consumer + Producer)
+│   ├── JohBloch.ConfluentKafka.Clients.Core/       # Options, interfaces, models, shared helpers, security
+│   ├── JohBloch.ConfluentKafka.Clients.Consumer/   # Consumer client + deserialization implementations
+│   └── JohBloch.ConfluentKafka.Clients.Producer/   # Producer client + serialization implementations
 ├── tests/                           # Unit tests
 ├── docs/                            # Documentation
 └── JohBloch.ConfluentKafka.Clients.sln

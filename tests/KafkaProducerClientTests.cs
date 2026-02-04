@@ -30,22 +30,10 @@ public class KafkaProducerClientTests : DisposableTestBase
         public Dictionary<string, string>? GetKafkaSaslConfig() => new() { { "sasl.mechanism", "OAUTHBEARER" } };
     }
 
-    private sealed class FakeSchemaRegistryFactory : ISchemaRegistryFactory
+    private JohBloch.ConfluentKafka.SchemaRegistryExtClient.Interfaces.ISchemaRegistryExtClient CreateSchemaRegistry()
     {
-        private readonly Action<IDisposable>? _track;
-
-        public FakeSchemaRegistryFactory(Action<IDisposable>? track = null)
-        {
-            _track = track;
-        }
-
-        public ISchemaRegistryClient CreateClient()
-        {
-            var cfg = new SchemaRegistryConfig { Url = "http://localhost:8081" };
-            var client = new CachedSchemaRegistryClient(cfg);
-            _track?.Invoke(client);
-            return client;
-        }
+        var cfg = new SchemaRegistryConfig { Url = "http://localhost:8081" };
+        return Track(new JohBloch.ConfluentKafka.SchemaRegistryExtClient.Services.SchemaRegistryExtClient(cfg, tokenRefreshFunc: null));
     }
 
     private KafkaProducerClient CreateProducerClient(KafkaProducerOptions? opts = null)
@@ -60,7 +48,7 @@ public class KafkaProducerClientTests : DisposableTestBase
             CompressionType = "gzip"
         };
         var dict = new Dictionary<string, KafkaProducerOptions> { { "default", opts } };
-        return Track(new KafkaProducerClient(dict, new FakeTokenProvider(), new FakeSchemaRegistryFactory(TrackDisposable), NullLogger<KafkaProducerClient>.Instance));
+        return Track(new KafkaProducerClient(dict, new FakeTokenProvider(), CreateSchemaRegistry(), NullLoggerFactory.Instance, NullLogger<KafkaProducerClient>.Instance));
     }
 
     [Fact]
@@ -79,7 +67,7 @@ public class KafkaProducerClientTests : DisposableTestBase
         };
 
         var ex = Assert.Throws<InvalidOperationException>(() =>
-            new KafkaProducerClient(dict, new FakeTokenProvider(), new FakeSchemaRegistryFactory(TrackDisposable), NullLogger<KafkaProducerClient>.Instance));
+            new KafkaProducerClient(dict, new FakeTokenProvider(), CreateSchemaRegistry(), NullLoggerFactory.Instance, NullLogger<KafkaProducerClient>.Instance));
 
         Assert.Contains("_dlq_default", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
@@ -106,7 +94,7 @@ public class KafkaProducerClientTests : DisposableTestBase
         };
 
         var ex = Assert.Throws<InvalidOperationException>(() =>
-            new KafkaProducerClient(dict, new FakeTokenProvider(), new FakeSchemaRegistryFactory(TrackDisposable), NullLogger<KafkaProducerClient>.Instance));
+            new KafkaProducerClient(dict, new FakeTokenProvider(), CreateSchemaRegistry(), NullLoggerFactory.Instance, NullLogger<KafkaProducerClient>.Instance));
 
         Assert.Contains("_dlq_default", ex.Message, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("expected", ex.Message, StringComparison.OrdinalIgnoreCase);
@@ -133,7 +121,7 @@ public class KafkaProducerClientTests : DisposableTestBase
             }
         };
 
-        _ = Track(new KafkaProducerClient(dict, new FakeTokenProvider(), new FakeSchemaRegistryFactory(TrackDisposable), NullLogger<KafkaProducerClient>.Instance));
+        _ = Track(new KafkaProducerClient(dict, new FakeTokenProvider(), CreateSchemaRegistry(), NullLoggerFactory.Instance, NullLogger<KafkaProducerClient>.Instance));
     }
 
     /// <summary>
@@ -587,7 +575,15 @@ public class KafkaProducerClientTests : DisposableTestBase
 
     private static async Task<KafkaResult> InvokeProduceMessageAsync<T>(ConfigurableFakeProducer<T> prod, T value, string key, string topic, Headers? headers = null, CancellationToken ct = default)
     {
-        using var client = new KafkaProducerClient(new Dictionary<string, KafkaProducerOptions> { { "default", new KafkaProducerOptions { BootstrapServers = "localhost:9092", ApplicationId = "app-id", Topic = topic } } }, new FakeTokenProvider(), new FakeSchemaRegistryFactory(), NullLogger<KafkaProducerClient>.Instance);
+        using var schemaRegistry = new JohBloch.ConfluentKafka.SchemaRegistryExtClient.Services.SchemaRegistryExtClient(
+            new SchemaRegistryConfig { Url = "http://localhost:8081" },
+            tokenRefreshFunc: null);
+        using var client = new KafkaProducerClient(
+            new Dictionary<string, KafkaProducerOptions> { { "default", new KafkaProducerOptions { BootstrapServers = "localhost:9092", ApplicationId = "app-id", Topic = topic } } },
+            new FakeTokenProvider(),
+            schemaRegistry,
+            NullLoggerFactory.Instance,
+            NullLogger<KafkaProducerClient>.Instance);
         var mi = typeof(KafkaProducerClient).GetMethod("ProduceMessageAsync", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
         Assert.NotNull(mi);
         var task = (Task<KafkaResult>)mi.MakeGenericMethod(typeof(T)).Invoke(client, new object?[] { prod, value, key, topic, headers, "default", ct })!;

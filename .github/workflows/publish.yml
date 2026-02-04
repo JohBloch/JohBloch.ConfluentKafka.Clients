@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v4
       with:
         fetch-depth: 0
 
@@ -23,10 +23,10 @@ jobs:
           exit 1
         fi
     
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v5
+    - name: Setup .NET (global.json)
+      uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: 10.0.x
+        global-json-file: global.json
 
     - name: .NET info
       shell: bash
@@ -72,13 +72,32 @@ jobs:
 
     - name: Upload TestResults (including blame)
       if: success() || failure()
-      uses: actions/upload-artifact@v6
+      uses: actions/upload-artifact@v4
       with:
         name: testresults
         path: TestResults/
       
     - name: Pack
-      run: dotnet pack ./src/JohBloch.ConfluentKafka.Clients/JohBloch.ConfluentKafka.Clients.csproj --configuration Release --no-build --output ./artifacts
+      shell: bash
+      run: |
+        set -euo pipefail
+        rm -rf ./artifacts
+        mkdir -p ./artifacts
+
+        projects=(
+          "./src/JohBloch.ConfluentKafka.Clients.Core/JohBloch.ConfluentKafka.Clients.Core.csproj"
+          "./src/JohBloch.ConfluentKafka.Clients.Consumer/JohBloch.ConfluentKafka.Clients.Consumer.csproj"
+          "./src/JohBloch.ConfluentKafka.Clients.Producer/JohBloch.ConfluentKafka.Clients.Producer.csproj"
+          "./src/JohBloch.ConfluentKafka.Clients/JohBloch.ConfluentKafka.Clients.csproj"
+        )
+
+        for p in "${projects[@]}"; do
+          echo "Packing ${p}..."
+          dotnet pack "${p}" --configuration Release --no-build --output ./artifacts /p:ContinuousIntegrationBuild=true
+        done
+
+        echo "Artifacts:"
+        ls -la ./artifacts
       
     - name: Push to NuGet
       run: dotnet nuget push ./artifacts/*.nupkg --api-key ${{secrets.NUGET_API_KEY}} --source https://api.nuget.org/v3/index.json --skip-duplicate

@@ -100,26 +100,18 @@ services.AddKafkaClients(options =>
     
     // Schema Registry authentication (configure via Schema Registry client config)
     // The library's SchemaRegistryFactory handles this internally
-    // For custom configuration, you can inject ISchemaRegistryClient
+    // For custom configuration, you can inject ISchemaRegistryExtClient
 });
 ```
 
 If you need custom Schema Registry authentication:
 
 ```csharp
-using Confluent.SchemaRegistry;
-
-// Manual Schema Registry client configuration (advanced)
-var schemaRegistryConfig = new SchemaRegistryConfig
-{
-    Url = "https://your-schema-registry:8081",
-    BasicAuthUserInfo = "sr-api-key:sr-api-secret" // Format: "key:secret"
-};
-
-var schemaRegistryClient = new CachedSchemaRegistryClient(schemaRegistryConfig);
-
-// Register in DI if needed
-services.AddSingleton<ISchemaRegistryClient>(schemaRegistryClient);
+// Prefer using `services.AddKafkaClients(...)` which configures and registers `ISchemaRegistryExtClient` for you.
+// If you need a custom client instance, register an `ISchemaRegistryExtClient` implementation manually.
+// Example (conceptual):
+// var schemaRegistryExtClient = new SchemaRegistryExtClient(...);
+// services.AddSingleton<ISchemaRegistryExtClient>(schemaRegistryExtClient);
 ```
 
 ## Environment-Based Configuration

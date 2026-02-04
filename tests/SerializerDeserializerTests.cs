@@ -22,10 +22,11 @@ namespace JohBloch.ConfluentKafka.Clients.Tests;
 /// </summary>
 public class SerializerDeserializerTests : DisposableTestBase
 {
-    private ISchemaRegistryClient CreateFakeSchemaRegistry()
+    private JohBloch.ConfluentKafka.SchemaRegistryExtClient.Interfaces.ISchemaRegistryExtClient CreateFakeSchemaRegistry()
     {
         var config = new SchemaRegistryConfig { Url = "http://localhost:8081" };
-        return Track(new CachedSchemaRegistryClient(config));
+        var ext = Track(new JohBloch.ConfluentKafka.SchemaRegistryExtClient.Services.SchemaRegistryExtClient(config, tokenRefreshFunc: null));
+        return ext;
     }
 
     #region JSON Tests
