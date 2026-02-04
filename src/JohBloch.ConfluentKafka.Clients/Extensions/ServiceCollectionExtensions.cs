@@ -7,6 +7,9 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Logging;
+using JohBloch.ConfluentKafka.SchemaRegistryExtClient.Services;
+using JohBloch.ConfluentKafka.SchemaRegistryExtClient.Interfaces;
+using JohBloch.ConfluentKafka.SchemaRegistryExtClient.Models;
 
 namespace JohBloch.ConfluentKafka.Clients;
 
@@ -99,14 +102,46 @@ public static class ServiceCollectionExtensions
         // 4. Register Infrastructure Services
         services.AddHttpClient("KafkaOAuth");
         services.TryAddSingleton<ISecurityTokenProvider, OAuthSecurityTokenProvider>();
-        services.TryAddSingleton<ISchemaRegistryFactory, SchemaRegistryFactory>();
+
+        // Register the extended Schema Registry client (supports caching and token refresh).
+        // Note: this library's public API now prefers ISchemaRegistryExtClient (breaking change).
+        services.TryAddSingleton<ISchemaRegistryExtClient>(sp =>
+        {
+            var srOpts = sp.GetRequiredService<IOptions<SchemaRegistryOptions>>().Value;
+            var kafkaOpts = sp.GetRequiredService<IOptions<KafkaClientOptions>>().Value;
+            var security = sp.GetService<ISecurityTokenProvider>();
+
+            var config = new SchemaRegistryConfig
+            {
+                Url = string.IsNullOrWhiteSpace(srOpts.Url) ? kafkaOpts.SchemaRegistryUrl : srOpts.Url
+            };
+
+            Func<Task<(string token, DateTime expiresAt)>>? tokenRefreshFunc = null;
+            if (!string.IsNullOrWhiteSpace(srOpts.TokenEndpointUrl) && security != null)
+            {
+                tokenRefreshFunc = async () =>
+                {
+                    var token = await security.GetAccessTokenAsync().ConfigureAwait(false);
+                    return (token.AccessTokenValue, token.ExpiresOn.UtcDateTime);
+                };
+            }
+
+            var options = new SchemaClientOptions
+            {
+                LogicalCluster = srOpts.LogicalCluster,
+                IdentityPoolId = srOpts.IdentityPoolId
+            };
+
+            return new JohBloch.ConfluentKafka.SchemaRegistryExtClient.Services.SchemaRegistryExtClient(config, tokenRefreshFunc, cache: null, options: options);
+        });
 
         // 5. Register Producer Client (Factory Pattern)
         services.TryAddSingleton<IKafkaProducerClient>(sp =>
         {
             var options = sp.GetRequiredService<IOptions<KafkaClientOptions>>().Value;
             var security = sp.GetRequiredService<ISecurityTokenProvider>();
-            var schemaRegistry = sp.GetRequiredService<ISchemaRegistryFactory>();
+            var schemaRegistry = sp.GetRequiredService<ISchemaRegistryExtClient>();
+            var loggerFactory = sp.GetRequiredService<ILoggerFactory>();
             var logger = sp.GetRequiredService<ILogger<KafkaProducerClient>>();
 
             // Ensure BootstrapServers is inherited if missing
@@ -122,6 +157,7 @@ public static class ServiceCollectionExtensions
                 options.Producers,
                 security,
                 schemaRegistry,
+                loggerFactory,
                 logger,
                 options.GlobalProducerConfig,
                 options.PerProducerConfigs.ToDictionary(k => k.Key, v => (IDictionary<string, string>)v.Value)
@@ -134,7 +170,8 @@ public static class ServiceCollectionExtensions
             var consumerOpts = sp.GetRequiredService<IOptions<KafkaConsumerOptions>>();
             var srOpts = sp.GetRequiredService<IOptions<SchemaRegistryOptions>>();
             var security = sp.GetRequiredService<ISecurityTokenProvider>();
-            var schemaRegistry = sp.GetRequiredService<ISchemaRegistryFactory>();
+            var schemaRegistry = sp.GetRequiredService<ISchemaRegistryExtClient>();
+            var loggerFactory = sp.GetRequiredService<ILoggerFactory>();
             var logger = sp.GetRequiredService<ILogger<KafkaConsumerClient>>();
             var clientOptions = sp.GetRequiredService<IOptions<KafkaClientOptions>>().Value;
 
@@ -143,9 +180,11 @@ public static class ServiceCollectionExtensions
                 srOpts,
                 security,
                 schemaRegistry,
+                loggerFactory,
                 logger,
                 globalConfig: clientOptions.ConsumerConfig,
-                consumerOverrides: null);
+                consumerOverrides: null,
+                consumerOverride: null);
         });
 
         return services;

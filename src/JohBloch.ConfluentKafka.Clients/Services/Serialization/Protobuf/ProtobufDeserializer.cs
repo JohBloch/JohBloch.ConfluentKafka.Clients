@@ -6,13 +6,13 @@ namespace JohBloch.ConfluentKafka.Clients.Services.Serialization.Protobuf
     /// </summary>
     public class ProtobufDeserializer<T> : IMessageDeserializer<T>
     {
-        private readonly ISchemaRegistryClient _schemaRegistry;
+        private readonly JohBloch.ConfluentKafka.SchemaRegistryExtClient.Interfaces.ISchemaRegistryExtClient _schemaRegistry;
         private readonly ILogger _logger;
 
         /// <summary>
         /// Initializes a new instance of the ProtobufDeserializer class.
         /// </summary>
-        public ProtobufDeserializer(ISchemaRegistryClient schemaRegistry, ILogger logger)
+        public ProtobufDeserializer(JohBloch.ConfluentKafka.SchemaRegistryExtClient.Interfaces.ISchemaRegistryExtClient schemaRegistry, ILogger logger)
         {
             _schemaRegistry = schemaRegistry ?? throw new ArgumentNullException(nameof(schemaRegistry));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));

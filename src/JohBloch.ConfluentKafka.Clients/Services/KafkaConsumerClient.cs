@@ -11,7 +11,8 @@ namespace JohBloch.ConfluentKafka.Clients.Services
     public class KafkaConsumerClient : IKafkaConsumerClient, IDisposable
     {
         private readonly ILogger<KafkaConsumerClient> _logger;
-        private readonly ISchemaRegistryClient _schemaRegistry;
+        private readonly JohBloch.ConfluentKafka.SchemaRegistryExtClient.Interfaces.ISchemaRegistryExtClient _schemaRegistry;
+        private readonly bool _ownsSchemaRegistry;
         private readonly KafkaConsumerOptions _kafkaConsumerOpts;
         private readonly SchemaRegistryOptions _srOpts;
         private readonly ISecurityTokenProvider _securityProvider;
@@ -31,18 +32,21 @@ namespace JohBloch.ConfluentKafka.Clients.Services
 
         /// <summary>
         /// Initializes a new instance of the <see cref="KafkaConsumerClient"/> class.
+        /// Preferred overload: takes an <see cref="JohBloch.ConfluentKafka.SchemaRegistryExtClient.Interfaces.ISchemaRegistryExtClient"/> directly.
         /// </summary>
         public KafkaConsumerClient(
             IOptions<KafkaConsumerOptions> kafkaConsumerOptions,
             IOptions<SchemaRegistryOptions> schemaRegistryOptions,
             ISecurityTokenProvider securityProvider,
-            ISchemaRegistryFactory schemaRegistryFactory,
+            JohBloch.ConfluentKafka.SchemaRegistryExtClient.Interfaces.ISchemaRegistryExtClient schemaRegistry,
+            ILoggerFactory loggerFactory,
             ILogger<KafkaConsumerClient> logger)
             : this(
                 kafkaConsumerOptions,
                 schemaRegistryOptions,
                 securityProvider,
-                schemaRegistryFactory,
+                schemaRegistry,
+                loggerFactory,
                 logger,
                 globalConfig: null,
                 consumerOverrides: null,
@@ -50,32 +54,15 @@ namespace JohBloch.ConfluentKafka.Clients.Services
         {
         }
 
-        internal KafkaConsumerClient(
-            IOptions<KafkaConsumerOptions> kafkaConsumerOptions,
-            IOptions<SchemaRegistryOptions> schemaRegistryOptions,
-            ISecurityTokenProvider securityProvider,
-            ISchemaRegistryFactory schemaRegistryFactory,
-            ILogger<KafkaConsumerClient> logger,
-            IConsumer<string, byte[]> consumerOverride)
-            : this(
-                kafkaConsumerOptions,
-                schemaRegistryOptions,
-                securityProvider,
-                schemaRegistryFactory,
-                logger,
-                globalConfig: null,
-                consumerOverrides: null,
-                consumerOverride: consumerOverride)
-        {
-        }
-
         /// <summary>
         /// Initializes a new instance of the <see cref="KafkaConsumerClient"/> class.
+        /// Preferred overload: takes an <see cref="JohBloch.ConfluentKafka.SchemaRegistryExtClient.Interfaces.ISchemaRegistryExtClient"/> directly.
         /// </summary>
         /// <param name="kafkaConsumerOptions">Consumer options.</param>
         /// <param name="schemaRegistryOptions">Schema Registry options.</param>
         /// <param name="securityProvider">Security token provider.</param>
-        /// <param name="schemaRegistryFactory">Schema Registry client factory.</param>
+        /// <param name="schemaRegistry">Schema Registry extended client.</param>
+        /// <param name="loggerFactory">Logger factory (used by serializers/deserializers).</param>
         /// <param name="logger">Logger instance.</param>
         /// <param name="globalConfig">Optional global configuration settings applied to the consumer.</param>
         /// <param name="consumerOverrides">Optional per-consumer configuration overrides.</param>
@@ -83,7 +70,8 @@ namespace JohBloch.ConfluentKafka.Clients.Services
             IOptions<KafkaConsumerOptions> kafkaConsumerOptions,
             IOptions<SchemaRegistryOptions> schemaRegistryOptions,
             ISecurityTokenProvider securityProvider,
-            ISchemaRegistryFactory schemaRegistryFactory,
+            JohBloch.ConfluentKafka.SchemaRegistryExtClient.Interfaces.ISchemaRegistryExtClient schemaRegistry,
+            ILoggerFactory loggerFactory,
             ILogger<KafkaConsumerClient> logger,
             IDictionary<string, string>? globalConfig,
             IDictionary<string, string>? consumerOverrides)
@@ -91,7 +79,8 @@ namespace JohBloch.ConfluentKafka.Clients.Services
                 kafkaConsumerOptions,
                 schemaRegistryOptions,
                 securityProvider,
-                schemaRegistryFactory,
+                schemaRegistry,
+                loggerFactory,
                 logger,
                 globalConfig,
                 consumerOverrides,
@@ -103,35 +92,34 @@ namespace JohBloch.ConfluentKafka.Clients.Services
             IOptions<KafkaConsumerOptions> kafkaConsumerOptions,
             IOptions<SchemaRegistryOptions> schemaRegistryOptions,
             ISecurityTokenProvider securityProvider,
-            ISchemaRegistryFactory schemaRegistryFactory,
+            JohBloch.ConfluentKafka.SchemaRegistryExtClient.Interfaces.ISchemaRegistryExtClient schemaRegistry,
+            ILoggerFactory loggerFactory,
             ILogger<KafkaConsumerClient> logger,
             IDictionary<string, string>? globalConfig,
             IDictionary<string, string>? consumerOverrides,
             IConsumer<string, byte[]>? consumerOverride)
         {
             ArgumentNullException.ThrowIfNull(logger);
+            ArgumentNullException.ThrowIfNull(loggerFactory);
             ArgumentNullException.ThrowIfNull(kafkaConsumerOptions);
             ArgumentNullException.ThrowIfNull(schemaRegistryOptions);
             ArgumentNullException.ThrowIfNull(securityProvider);
-            ArgumentNullException.ThrowIfNull(schemaRegistryFactory);
-            
+            ArgumentNullException.ThrowIfNull(schemaRegistry);
+
             _logger = logger;
             _kafkaConsumerOpts = kafkaConsumerOptions.Value;
             _srOpts = schemaRegistryOptions.Value;
             _securityProvider = securityProvider;
-            _schemaRegistry = schemaRegistryFactory.CreateClient();
+            _schemaRegistry = schemaRegistry;
+            _ownsSchemaRegistry = false;
 
-            // Initialize deserializer factory
-            var loggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
             _deserializerFactory = new DeserializerFactory(_schemaRegistry, loggerFactory);
 
             _globalConfig = globalConfig;
             _consumerOverrides = consumerOverrides;
 
-            // Initialize consumer
             _consumer = consumerOverride ?? InitializeConsumer();
 
-            // Subscribe to topics
             if (!string.IsNullOrWhiteSpace(_kafkaConsumerOpts.Topic))
             {
                 _consumer.Subscribe(_kafkaConsumerOpts.Topic);
@@ -141,26 +129,30 @@ namespace JohBloch.ConfluentKafka.Clients.Services
 
         /// <summary>
         /// Initializes a new instance of the <see cref="KafkaConsumerClient"/> class using a dictionary of consumer options keyed by logical consumer name.
+        /// Preferred overload: takes an <see cref="JohBloch.ConfluentKafka.SchemaRegistryExtClient.Interfaces.ISchemaRegistryExtClient"/> directly.
         /// </summary>
         /// <param name="consumerOptions">Consumer options keyed by logical consumer name.</param>
         /// <param name="consumerKey">The logical consumer key to select options from the dictionary.</param>
         /// <param name="schemaRegistryOptions">Schema Registry options.</param>
         /// <param name="securityProvider">Security token provider.</param>
-        /// <param name="schemaRegistryFactory">Schema Registry client factory.</param>
+        /// <param name="schemaRegistry">Schema Registry extended client.</param>
+        /// <param name="loggerFactory">Logger factory (used by serializers/deserializers).</param>
         /// <param name="logger">Logger instance.</param>
         public KafkaConsumerClient(
             IDictionary<string, KafkaConsumerOptions> consumerOptions,
             string consumerKey,
             IOptions<SchemaRegistryOptions> schemaRegistryOptions,
             ISecurityTokenProvider securityProvider,
-            ISchemaRegistryFactory schemaRegistryFactory,
+            JohBloch.ConfluentKafka.SchemaRegistryExtClient.Interfaces.ISchemaRegistryExtClient schemaRegistry,
+            ILoggerFactory loggerFactory,
             ILogger<KafkaConsumerClient> logger)
             : this(
                 consumerOptions,
                 consumerKey,
                 schemaRegistryOptions,
                 securityProvider,
-                schemaRegistryFactory,
+                schemaRegistry,
+                loggerFactory,
                 logger,
                 globalConfig: null,
                 perConsumerConfigs: null,
@@ -168,44 +160,26 @@ namespace JohBloch.ConfluentKafka.Clients.Services
         {
         }
 
-        internal KafkaConsumerClient(
-            IDictionary<string, KafkaConsumerOptions> consumerOptions,
-            string consumerKey,
-            IOptions<SchemaRegistryOptions> schemaRegistryOptions,
-            ISecurityTokenProvider securityProvider,
-            ISchemaRegistryFactory schemaRegistryFactory,
-            ILogger<KafkaConsumerClient> logger,
-            IConsumer<string, byte[]> consumerOverride)
-            : this(
-                consumerOptions,
-                consumerKey,
-                schemaRegistryOptions,
-                securityProvider,
-                schemaRegistryFactory,
-                logger,
-                globalConfig: null,
-                perConsumerConfigs: null,
-                consumerOverride: consumerOverride)
-        {
-        }
-
-            /// <summary>
-            /// Initializes a new instance of the <see cref="KafkaConsumerClient"/> class using a dictionary of consumer options keyed by logical consumer name.
-            /// </summary>
-            /// <param name="consumerOptions">Consumer options keyed by logical consumer name.</param>
-            /// <param name="consumerKey">The logical consumer key to select options from the dictionary.</param>
-            /// <param name="schemaRegistryOptions">Schema Registry options.</param>
-            /// <param name="securityProvider">Security token provider.</param>
-            /// <param name="schemaRegistryFactory">Schema Registry client factory.</param>
-            /// <param name="logger">Logger instance.</param>
-            /// <param name="globalConfig">Optional global configuration settings applied to the consumer.</param>
-            /// <param name="perConsumerConfigs">Optional per-consumer configuration overrides keyed by consumer key.</param>
+        /// <summary>
+        /// Initializes a new instance of the <see cref="KafkaConsumerClient"/> class using a dictionary of consumer options keyed by logical consumer name.
+        /// Preferred overload: takes an <see cref="JohBloch.ConfluentKafka.SchemaRegistryExtClient.Interfaces.ISchemaRegistryExtClient"/> directly.
+        /// </summary>
+        /// <param name="consumerOptions">Consumer options keyed by logical consumer name.</param>
+        /// <param name="consumerKey">The logical consumer key to select options from the dictionary.</param>
+        /// <param name="schemaRegistryOptions">Schema Registry options.</param>
+        /// <param name="securityProvider">Security token provider.</param>
+        /// <param name="schemaRegistry">Schema Registry extended client.</param>
+        /// <param name="loggerFactory">Logger factory (used by serializers/deserializers).</param>
+        /// <param name="logger">Logger instance.</param>
+        /// <param name="globalConfig">Optional global configuration settings applied to the consumer.</param>
+        /// <param name="perConsumerConfigs">Optional per-consumer configuration overrides keyed by consumer key.</param>
         public KafkaConsumerClient(
             IDictionary<string, KafkaConsumerOptions> consumerOptions,
             string consumerKey,
             IOptions<SchemaRegistryOptions> schemaRegistryOptions,
             ISecurityTokenProvider securityProvider,
-            ISchemaRegistryFactory schemaRegistryFactory,
+            JohBloch.ConfluentKafka.SchemaRegistryExtClient.Interfaces.ISchemaRegistryExtClient schemaRegistry,
+            ILoggerFactory loggerFactory,
             ILogger<KafkaConsumerClient> logger,
             IDictionary<string, string>? globalConfig,
             IDictionary<string, IDictionary<string, string>>? perConsumerConfigs)
@@ -214,7 +188,8 @@ namespace JohBloch.ConfluentKafka.Clients.Services
                 consumerKey,
                 schemaRegistryOptions,
                 securityProvider,
-                schemaRegistryFactory,
+                schemaRegistry,
+                loggerFactory,
                 logger,
                 globalConfig,
                 perConsumerConfigs,
@@ -227,7 +202,8 @@ namespace JohBloch.ConfluentKafka.Clients.Services
             string consumerKey,
             IOptions<SchemaRegistryOptions> schemaRegistryOptions,
             ISecurityTokenProvider securityProvider,
-            ISchemaRegistryFactory schemaRegistryFactory,
+            JohBloch.ConfluentKafka.SchemaRegistryExtClient.Interfaces.ISchemaRegistryExtClient schemaRegistry,
+            ILoggerFactory loggerFactory,
             ILogger<KafkaConsumerClient> logger,
             IDictionary<string, string>? globalConfig,
             IDictionary<string, IDictionary<string, string>>? perConsumerConfigs,
@@ -236,34 +212,37 @@ namespace JohBloch.ConfluentKafka.Clients.Services
             if (consumerOptions == null) throw new ArgumentNullException(nameof(consumerOptions));
             if (string.IsNullOrWhiteSpace(consumerKey)) throw new ArgumentNullException(nameof(consumerKey));
 
-            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-            _srOpts = schemaRegistryOptions?.Value ?? throw new ArgumentNullException(nameof(schemaRegistryOptions));
-            _securityProvider = securityProvider ?? throw new ArgumentNullException(nameof(securityProvider));
+            ArgumentNullException.ThrowIfNull(logger);
+            ArgumentNullException.ThrowIfNull(loggerFactory);
+            ArgumentNullException.ThrowIfNull(schemaRegistryOptions);
+            ArgumentNullException.ThrowIfNull(securityProvider);
+            ArgumentNullException.ThrowIfNull(schemaRegistry);
+
+            _logger = logger;
+            _srOpts = schemaRegistryOptions.Value;
+            _securityProvider = securityProvider;
 
             if (!consumerOptions.TryGetValue(consumerKey, out var selected))
                 throw new KeyNotFoundException($"Consumer options not found for key '{consumerKey}'");
             _kafkaConsumerOpts = selected;
 
-            _schemaRegistry = schemaRegistryFactory?.CreateClient()
-                ?? throw new ArgumentNullException(nameof(schemaRegistryFactory));
+            _schemaRegistry = schemaRegistry;
+            _ownsSchemaRegistry = false;
 
-            // Initialize deserializer factory
-            var loggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
             _deserializerFactory = new DeserializerFactory(_schemaRegistry, loggerFactory);
 
             _globalConfig = globalConfig;
             _consumerOverrides = perConsumerConfigs != null && perConsumerConfigs.TryGetValue(consumerKey, out var over) ? over : null;
 
-            // Initialize consumer
             _consumer = consumerOverride ?? InitializeConsumer();
 
-            // Subscribe to topics if provided
             if (!string.IsNullOrWhiteSpace(_kafkaConsumerOpts.Topic))
             {
                 _consumer.Subscribe(_kafkaConsumerOpts.Topic);
                 _logger.LogInformation("[{key}] Subscribed to topic: {topic}", consumerKey, _kafkaConsumerOpts.Topic);
             }
         }
+
 
         /// <summary>
         /// Initializes the Kafka consumer with the configured options.
@@ -906,7 +885,10 @@ namespace JohBloch.ConfluentKafka.Clients.Services
 
             try
             {
-                _schemaRegistry.Dispose();
+                if (_ownsSchemaRegistry)
+                {
+                    _schemaRegistry.Dispose();
+                }
             }
             catch (Exception ex)
             {

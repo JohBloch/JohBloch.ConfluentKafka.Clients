@@ -9,7 +9,7 @@ namespace JohBloch.ConfluentKafka.Clients.Services.Serialization
     /// </summary>
     public class DeserializerFactory
     {
-        private readonly ISchemaRegistryClient _schemaRegistry;
+        private readonly JohBloch.ConfluentKafka.SchemaRegistryExtClient.Interfaces.ISchemaRegistryExtClient _schemaRegistry;
         private readonly ILoggerFactory _loggerFactory;
 
         /// <summary>
@@ -17,7 +17,7 @@ namespace JohBloch.ConfluentKafka.Clients.Services.Serialization
         /// </summary>
         /// <param name="schemaRegistry">The schema registry client.</param>
         /// <param name="loggerFactory">The logger factory.</param>
-        public DeserializerFactory(ISchemaRegistryClient schemaRegistry, ILoggerFactory loggerFactory)
+        public DeserializerFactory(JohBloch.ConfluentKafka.SchemaRegistryExtClient.Interfaces.ISchemaRegistryExtClient schemaRegistry, ILoggerFactory loggerFactory)
         {
             _schemaRegistry = schemaRegistry ?? throw new ArgumentNullException(nameof(schemaRegistry));
             _loggerFactory = loggerFactory ?? throw new ArgumentNullException(nameof(loggerFactory));
@@ -68,8 +68,9 @@ namespace JohBloch.ConfluentKafka.Clients.Services.Serialization
                 // Extract schema ID (big-endian)
                 var schemaId = (data[1] << 24) | (data[2] << 16) | (data[3] << 8) | data[4];
 
-                // Fetch schema from registry
-                var schema = await _schemaRegistry.GetSchemaAsync(schemaId, "serialized");
+                // Fetch schema from registry using the underlying Confluent client obtained from ext client
+                var client = await _schemaRegistry.GetClientAsync().ConfigureAwait(false);
+                var schema = await client.GetSchemaAsync(schemaId, "serialized").ConfigureAwait(false);
 
                 // Determine type from schema metadata (SchemaType is an enum from Confluent)
                 return schema.SchemaType switch

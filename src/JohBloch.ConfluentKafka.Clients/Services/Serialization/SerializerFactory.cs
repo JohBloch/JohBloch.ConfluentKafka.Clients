@@ -9,7 +9,7 @@ namespace JohBloch.ConfluentKafka.Clients.Services.Serialization
     /// </summary>
     public class SerializerFactory
     {
-        private readonly ISchemaRegistryClient _schemaRegistry;
+        private readonly JohBloch.ConfluentKafka.SchemaRegistryExtClient.Interfaces.ISchemaRegistryExtClient _schemaRegistry;
         private readonly ILoggerFactory _loggerFactory;
 
         /// <summary>
@@ -17,7 +17,7 @@ namespace JohBloch.ConfluentKafka.Clients.Services.Serialization
         /// </summary>
         /// <param name="schemaRegistry">The schema registry client.</param>
         /// <param name="loggerFactory">The logger factory.</param>
-        public SerializerFactory(ISchemaRegistryClient schemaRegistry, ILoggerFactory loggerFactory)
+        public SerializerFactory(JohBloch.ConfluentKafka.SchemaRegistryExtClient.Interfaces.ISchemaRegistryExtClient schemaRegistry, ILoggerFactory loggerFactory)
         {
             _schemaRegistry = schemaRegistry ?? throw new ArgumentNullException(nameof(schemaRegistry));
             _loggerFactory = loggerFactory ?? throw new ArgumentNullException(nameof(loggerFactory));
@@ -59,7 +59,8 @@ namespace JohBloch.ConfluentKafka.Clients.Services.Serialization
             try
             {
                 var subject = isKey ? $"{topic}-key" : $"{topic}-value";
-                var latestSchema = await _schemaRegistry.GetLatestSchemaAsync(subject);
+                var client = await _schemaRegistry.GetClientAsync().ConfigureAwait(false);
+                var latestSchema = await client.GetLatestSchemaAsync(subject).ConfigureAwait(false);
 
                 return latestSchema.SchemaType switch
                 {

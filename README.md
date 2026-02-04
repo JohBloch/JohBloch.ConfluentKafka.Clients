@@ -43,6 +43,11 @@ A modern, feature-rich .NET client library for Apache Kafka with Schema Registry
 dotnet add package JohBloch.ConfluentKafka.Clients
 ```
 
+## Build & CI
+
+- The .NET SDK version is pinned via `global.json`. GitHub Actions uses that file to select the SDK.
+- To enable Snyk scanning in CI, add a repository secret named `SNYK_TOKEN`.
+
 ## Quick Start
 
 ### Azure Functions (Isolated) - Configuration + DI (Recommended)

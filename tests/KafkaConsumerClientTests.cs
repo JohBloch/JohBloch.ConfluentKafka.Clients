@@ -209,33 +209,10 @@ public class KafkaConsumerClientTests
         public Dictionary<string, string>? GetKafkaSaslConfig() => new Dictionary<string, string> { { "sasl.mechanism", "OAUTHBEARER" } };
     }
 
-    private sealed class FakeSchemaRegistryFactory : ISchemaRegistryFactory
+    private JohBloch.ConfluentKafka.SchemaRegistryExtClient.Interfaces.ISchemaRegistryExtClient CreateSchemaRegistry()
     {
-        private readonly Action<IDisposable>? _track;
-
-        public FakeSchemaRegistryFactory(Action<IDisposable>? track = null)
-        {
-            _track = track;
-        }
-
-        public Confluent.SchemaRegistry.ISchemaRegistryClient CreateClient()
-        {
-            var cfg = new Confluent.SchemaRegistry.SchemaRegistryConfig
-            {
-                Url = "http://localhost:8081",
-                BearerAuthCredentialsSource = Confluent.SchemaRegistry.BearerAuthCredentialsSource.OAuthBearer,
-                BearerAuthClientId = "dummy-client",
-                BearerAuthClientSecret = "dummy-secret",
-                BearerAuthScope = "sr:read",
-                BearerAuthLogicalCluster = "dummy-cluster",
-                BearerAuthTokenEndpointUrl = "https://example.org/token",
-                BearerAuthIdentityPoolId = "dummy-pool"
-            };
-
-            var client = new Confluent.SchemaRegistry.CachedSchemaRegistryClient(cfg);
-            _track?.Invoke(client);
-            return client;
-        }
+        var cfg = new Confluent.SchemaRegistry.SchemaRegistryConfig { Url = "http://localhost:8081" };
+        return Track(new JohBloch.ConfluentKafka.SchemaRegistryExtClient.Services.SchemaRegistryExtClient(cfg, tokenRefreshFunc: null));
     }
 
     private KafkaConsumerClient CreateClient(
@@ -252,7 +229,7 @@ public class KafkaConsumerClientTests
         {
             Url = "http://localhost:8081",
             ClientId = "dummy-client",
-            ClientSecret = "dummy-secret",
+            ClientSecret = Guid.NewGuid().ToString("N"),
             Scope = "sr:read",
             LogicalCluster = "dummy-cluster",
             TokenEndpointUrl = "https://example.org/token",
@@ -264,8 +241,11 @@ public class KafkaConsumerClientTests
             Options.Create(consumerOpts),
             Options.Create(registryOpts),
             new FakeTokenProvider(),
-            new FakeSchemaRegistryFactory(TrackDisposable),
-            logger,
+            schemaRegistry: CreateSchemaRegistry(),
+            loggerFactory: NullLoggerFactory.Instance,
+            logger: logger,
+            globalConfig: null,
+            consumerOverrides: null,
             consumerOverride: new FakeConsumer()));
     }
 

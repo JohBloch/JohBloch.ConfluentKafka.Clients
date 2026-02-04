@@ -6,7 +6,7 @@ namespace JohBloch.ConfluentKafka.Clients.Services.Serialization.Json
     /// <typeparam name="T">The target type.</typeparam>
     public class JsonDeserializer<T> : IMessageDeserializer<T>
     {
-        private readonly ISchemaRegistryClient _schemaRegistry;
+        private readonly JohBloch.ConfluentKafka.SchemaRegistryExtClient.Interfaces.ISchemaRegistryExtClient _schemaRegistry;
         private readonly ILogger<JsonDeserializer<T>> _logger;
         private readonly System.Text.Json.JsonSerializerOptions _jsonOptions;
 
@@ -15,7 +15,7 @@ namespace JohBloch.ConfluentKafka.Clients.Services.Serialization.Json
         /// </summary>
         /// <param name="schemaRegistry">The schema registry client.</param>
         /// <param name="logger">The logger instance.</param>
-        public JsonDeserializer(ISchemaRegistryClient schemaRegistry, ILogger<JsonDeserializer<T>> logger)
+        public JsonDeserializer(JohBloch.ConfluentKafka.SchemaRegistryExtClient.Interfaces.ISchemaRegistryExtClient schemaRegistry, ILogger<JsonDeserializer<T>> logger)
         {
             _schemaRegistry = schemaRegistry ?? throw new ArgumentNullException(nameof(schemaRegistry));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));

@@ -10,14 +10,17 @@ namespace JohBloch.ConfluentKafka.Clients.Tests;
 
 public class OAuthSecurityTokenProviderExtensionsTests
 {
+    private static string CreateTestSecret() => Guid.NewGuid().ToString("N");
+
     [Fact]
     public void GetExtensions_WhenConfigured_ReturnsLogicalClusterAndIdentityPoolId()
     {
+        var clientSecret = CreateTestSecret();
         var options = new KafkaClientOptions
         {
             OAuthTokenEndpoint = "https://example.com/oauth/token",
             OAuthClientId = "client-id",
-            OAuthClientSecret = "client-secret",
+            OAuthClientSecret = clientSecret,
             OAuthLogicalCluster = "lkc-123",
             OAuthIdentityPoolId = "pool-456"
         };
@@ -37,11 +40,12 @@ public class OAuthSecurityTokenProviderExtensionsTests
     [Fact]
     public void GetExtensions_WhenNotConfigured_ReturnsNull()
     {
+        var clientSecret = CreateTestSecret();
         var options = new KafkaClientOptions
         {
             OAuthTokenEndpoint = "https://example.com/oauth/token",
             OAuthClientId = "client-id",
-            OAuthClientSecret = "client-secret"
+            OAuthClientSecret = clientSecret
         };
 
         var provider = new OAuthSecurityTokenProvider(

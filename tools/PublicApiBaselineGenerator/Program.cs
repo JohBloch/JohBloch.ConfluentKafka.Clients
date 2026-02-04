@@ -38,6 +38,15 @@ if (!File.Exists(solutionPath))
     return Fail($"Solution not found: {solutionPath}");
 }
 
+// Safety: ensure we only write outputs inside this repository.
+// This tool is intended for this repo; allowing arbitrary solution paths can lead to writing files outside the repo.
+solutionPath = Path.GetFullPath(solutionPath);
+var repoRootWithSep = repoRoot.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
+if (!solutionPath.StartsWith(repoRootWithSep, StringComparison.OrdinalIgnoreCase))
+{
+    return Fail($"Refusing to open solution outside repoRoot. repoRoot='{repoRoot}', solution='{solutionPath}'");
+}
+
 if (!MSBuildLocator.IsRegistered)
 {
     MSBuildLocator.RegisterDefaults();
@@ -155,6 +164,12 @@ string apiText = (string)(generatorMethod.Invoke(null, invokeArgs)
 
 string projectDir = Path.GetDirectoryName(project.FilePath)
     ?? throw new InvalidOperationException("Project directory not found.");
+
+projectDir = Path.GetFullPath(projectDir);
+if (!projectDir.StartsWith(repoRootWithSep, StringComparison.OrdinalIgnoreCase))
+{
+    return Fail($"Refusing to write PublicAPI files outside repoRoot. repoRoot='{repoRoot}', projectDir='{projectDir}'");
+}
 
 string shippedPath = Path.Combine(projectDir, "PublicAPI.Shipped.txt");
 string unshippedPath = Path.Combine(projectDir, "PublicAPI.Unshipped.txt");

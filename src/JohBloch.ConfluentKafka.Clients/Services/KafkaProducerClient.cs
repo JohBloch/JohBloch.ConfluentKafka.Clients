@@ -1,4 +1,5 @@
 using JohBloch.ConfluentKafka.Clients.Services.Serialization;
+using JohBloch.ConfluentKafka.SchemaRegistryExtClient.Interfaces;
 using System.ComponentModel;
 
 namespace JohBloch.ConfluentKafka.Clients.Services
@@ -11,8 +12,10 @@ namespace JohBloch.ConfluentKafka.Clients.Services
     {
         private readonly ILogger<KafkaProducerClient> _logger;
         private readonly ISecurityTokenProvider _security;
-        private readonly ISchemaRegistryClient _schemaRegistry;
+        private readonly ISchemaRegistryExtClient _schemaRegistry;
+        private readonly bool _ownsSchemaRegistry;
         private readonly SerializerFactory _serializerFactory;
+        private readonly Lazy<Task<Confluent.SchemaRegistry.ISchemaRegistryClient>> _confluentSchemaClient;
         private readonly ConcurrentDictionary<(string ProducerKey, Type Type, bool Batch), object> _producers = new();
         private readonly Dictionary<string, KafkaProducerOptions> _producerOptions;
         private int _disposed;
@@ -29,37 +32,41 @@ namespace JohBloch.ConfluentKafka.Clients.Services
         }
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="KafkaProducerClient"/>.
+        /// Initializes a new instance of the <see cref="KafkaProducerClient"/> using a provided Schema Registry client.
+        /// Preferred overload: takes an <see cref="ISchemaRegistryExtClient"/> directly (typically from DI).
         /// </summary>
         /// <param name="producerOptions">Producer options keyed by logical producer name.</param>
         /// <param name="securityTokenProvider">Provider for OAuth bearer tokens and SASL settings.</param>
-        /// <param name="schemaRegistryFactory">Factory to create Schema Registry clients.</param>
+        /// <param name="schemaRegistry">Schema Registry extended client.</param>
+        /// <param name="loggerFactory">Logger factory (used by serializers).</param>
         /// <param name="logger">Logger instance.</param>
         /// <param name="globalConfig">Optional global librdkafka key/values to apply when set.</param>
         /// <param name="perProducerConfigs">Optional per-producer librdkafka overrides (by producer key).</param>
         public KafkaProducerClient(
             IDictionary<string, KafkaProducerOptions> producerOptions,
             ISecurityTokenProvider securityTokenProvider,
-            ISchemaRegistryFactory schemaRegistryFactory,
+            ISchemaRegistryExtClient schemaRegistry,
+            ILoggerFactory loggerFactory,
             ILogger<KafkaProducerClient> logger,
             IDictionary<string, string>? globalConfig = null,
             IDictionary<string, IDictionary<string, string>>? perProducerConfigs = null)
         {
             ArgumentNullException.ThrowIfNull(logger);
+            ArgumentNullException.ThrowIfNull(loggerFactory);
             ArgumentNullException.ThrowIfNull(securityTokenProvider);
-            ArgumentNullException.ThrowIfNull(schemaRegistryFactory);
+            ArgumentNullException.ThrowIfNull(schemaRegistry);
             ArgumentNullException.ThrowIfNull(producerOptions);
-            
+
             _logger = logger;
             _producerOptions = new Dictionary<string, KafkaProducerOptions>(producerOptions);
             _security = securityTokenProvider;
-            _schemaRegistry = schemaRegistryFactory.CreateClient();
+            _schemaRegistry = schemaRegistry;
+            _ownsSchemaRegistry = false;
             _globalConfig = globalConfig;
             _perProducerConfigs = perProducerConfigs;
-            
-            // Initialize SerializerFactory
-            var loggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
+
             _serializerFactory = new SerializerFactory(_schemaRegistry, loggerFactory);
+            _confluentSchemaClient = new Lazy<Task<Confluent.SchemaRegistry.ISchemaRegistryClient>>(() => _schemaRegistry.GetClientAsync());
 
             ValidateAutoDlqConfiguration();
         }
@@ -169,7 +176,9 @@ namespace JohBloch.ConfluentKafka.Clients.Services
             }
             else
             {
-                builder.SetValueSerializer(new AsyncSchemaRegistrySerializer<TValue>(_schemaRegistry).AsSyncOverAsync());
+                // Initialize sync-over-async serializer by obtaining the underlying Confluent client synchronously
+                var confluentClient = _confluentSchemaClient.Value.GetAwaiter().GetResult();
+                builder.SetValueSerializer(new AsyncSchemaRegistrySerializer<TValue>(confluentClient).AsSyncOverAsync());
             }
 
             return builder.Build();
@@ -766,7 +775,10 @@ namespace JohBloch.ConfluentKafka.Clients.Services
 
             try
             {
-                _schemaRegistry.Dispose();
+                if (_ownsSchemaRegistry)
+                {
+                    _schemaRegistry.Dispose();
+                }
             }
             catch (Exception ex)
             {

@@ -5,13 +5,13 @@ namespace JohBloch.ConfluentKafka.Clients.Services.Serialization.Avro
     /// </summary>
     public class AvroSerializer<T> : IMessageSerializer<T>
     {
-        private readonly ISchemaRegistryClient _schemaRegistry;
+        private readonly JohBloch.ConfluentKafka.SchemaRegistryExtClient.Interfaces.ISchemaRegistryExtClient _schemaRegistry;
         private readonly ILogger<AvroSerializer<T>> _logger;
 
         /// <summary>
         /// Initializes a new instance of the AvroSerializer class.
         /// </summary>
-        public AvroSerializer(ISchemaRegistryClient schemaRegistry, ILogger<AvroSerializer<T>> logger)
+        public AvroSerializer(JohBloch.ConfluentKafka.SchemaRegistryExtClient.Interfaces.ISchemaRegistryExtClient schemaRegistry, ILogger<AvroSerializer<T>> logger)
         {
             _schemaRegistry = schemaRegistry ?? throw new ArgumentNullException(nameof(schemaRegistry));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -24,8 +24,9 @@ namespace JohBloch.ConfluentKafka.Clients.Services.Serialization.Avro
         {
             try
             {
-                var serializer = new AsyncSchemaRegistrySerializer<T>(_schemaRegistry);
-                return await serializer.SerializeAsync(value, context);
+                var client = await _schemaRegistry.GetClientAsync().ConfigureAwait(false);
+                var serializer = new AsyncSchemaRegistrySerializer<T>(client);
+                return await serializer.SerializeAsync(value, context).ConfigureAwait(false);
             }
             catch (Exception ex)
             {

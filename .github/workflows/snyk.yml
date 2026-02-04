@@ -13,28 +13,35 @@ jobs:
       SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
 
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v4
       with:
         fetch-depth: 0
 
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v5
+    - name: Setup .NET (global.json)
+      uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: 10.0.x
+        global-json-file: global.json
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20
+
+    - name: Install Snyk CLI
+      if: env.SNYK_TOKEN != ''
+      run: npm install -g snyk
 
     - name: Restore dependencies
       run: dotnet restore
 
     - name: Snyk test (dependencies)
       if: env.SNYK_TOKEN != ''
-      uses: snyk/actions/dotnet@master
-      with:
-        command: test
-        args: --all-projects --severity-threshold=high
+      run: snyk test --all-projects --severity-threshold=high
+
+    - name: Snyk code test (SAST)
+      if: env.SNYK_TOKEN != ''
+      run: snyk code test --severity-threshold=medium
 
     - name: Snyk monitor (snapshot on main)
       if: env.SNYK_TOKEN != '' && github.ref == 'refs/heads/main' && github.event_name == 'push'
-      uses: snyk/actions/dotnet@master
-      with:
-        command: monitor
-        args: --all-projects
+      run: snyk monitor --all-projects

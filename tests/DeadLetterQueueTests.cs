@@ -22,6 +22,8 @@ namespace JohBloch.ConfluentKafka.Clients.Tests;
 public class DeadLetterQueueTests
     : DisposableTestBase
 {
+    private static string CreateTestKey(string prefix) => $"{prefix}-{Guid.NewGuid():N}";
+
     private sealed class FakeTokenProvider : ISecurityTokenProvider
     {
         public Task<AccessToken> GetAccessTokenAsync(CancellationToken cancellationToken = default)
@@ -31,23 +33,10 @@ public class DeadLetterQueueTests
         public Dictionary<string, string>? GetKafkaSaslConfig() => new() { { "sasl.mechanism", "OAUTHBEARER" } };
     }
 
-    private sealed class FakeSchemaRegistryFactory : ISchemaRegistryFactory
+    private JohBloch.ConfluentKafka.SchemaRegistryExtClient.Interfaces.ISchemaRegistryExtClient CreateSchemaRegistry()
     {
-        private readonly Action<IDisposable>? _track;
-
-        public FakeSchemaRegistryFactory(Action<IDisposable>? track = null)
-        {
-            _track = track;
-        }
-
-        public ISchemaRegistryClient CreateClient()
-        {
-            var cfg = new SchemaRegistryConfig { Url = "http://localhost:8081" };
-
-            var client = new CachedSchemaRegistryClient(cfg);
-            _track?.Invoke(client);
-            return client;
-        }
+        var cfg = new SchemaRegistryConfig { Url = "http://localhost:8081" };
+        return Track(new JohBloch.ConfluentKafka.SchemaRegistryExtClient.Services.SchemaRegistryExtClient(cfg, tokenRefreshFunc: null));
     }
 
     private KafkaProducerClient CreateProducerClient(KafkaProducerOptions? opts = null)
@@ -72,7 +61,8 @@ public class DeadLetterQueueTests
         return Track(new KafkaProducerClient(
             producerOptions,
             new FakeTokenProvider(),
-            new FakeSchemaRegistryFactory(TrackDisposable),
+            CreateSchemaRegistry(),
+            NullLoggerFactory.Instance,
             NullLogger<KafkaProducerClient>.Instance
         ));
     }
@@ -81,6 +71,7 @@ public class DeadLetterQueueTests
     public void DeadLetterMessage_CanBeInstantiated()
     {
         // Arrange & Act
+        var originalKey = CreateTestKey("key");
         var dlqMessage = new DeadLetterMessage
         {
             OriginalTopic = "test-topic",
@@ -92,7 +83,7 @@ public class DeadLetterQueueTests
             StackTrace = "at Test.Method()",
             RetryCount = 3,
             Severity = "error",
-            OriginalKey = "key-123",
+            OriginalKey = originalKey,
             OriginalValueBase64 = "dGVzdA==",
             ApplicationName = "test-app",
             Hostname = "test-host"
@@ -194,6 +185,7 @@ public class DeadLetterQueueTests
     {
         // Arrange
         using var client = CreateProducerClient();
+        var messageKey = CreateTestKey("order");
         var consumeResult = new ConsumeResult<string, string>
         {
             Topic = "orders",
@@ -201,7 +193,7 @@ public class DeadLetterQueueTests
             Offset = new Offset(123),
             Message = new Message<string, string>
             {
-                Key = "order-123",
+                Key = messageKey,
                 Value = "test-value"
             }
         };
@@ -216,6 +208,7 @@ public class DeadLetterQueueTests
     {
         // Arrange
         using var client = CreateProducerClient();
+        var messageKey = CreateTestKey("order");
         var consumeResult = new ConsumeResult<string, string>
         {
             Topic = "orders",
@@ -223,7 +216,7 @@ public class DeadLetterQueueTests
             Offset = new Offset(123),
             Message = new Message<string, string>
             {
-                Key = "order-123",
+                Key = messageKey,
                 Value = "test-value"
             }
         };
@@ -407,6 +400,7 @@ public class DeadLetterQueueTests
     public void BuildDeadLetterMessage_PreservesOriginalKey()
     {
         // Arrange
+        var originalKey = CreateTestKey("order");
         var consumeResult = new ConsumeResult<string, TestOrder>
         {
             Topic = "orders",
@@ -414,8 +408,8 @@ public class DeadLetterQueueTests
             Offset = new Offset(54321),
             Message = new Message<string, TestOrder>
             {
-                Key = "order-999",
-                Value = new TestOrder { OrderId = "order-999", Amount = 100.50m }
+                Key = originalKey,
+                Value = new TestOrder { OrderId = originalKey, Amount = 100.50m }
             }
         };
         var exception = new InvalidOperationException("Processing failed");
@@ -436,7 +430,7 @@ public class DeadLetterQueueTests
         };
 
         // Assert
-        Assert.Equal("order-999", dlqMessage.OriginalKey);
+        Assert.Equal(originalKey, dlqMessage.OriginalKey);
         Assert.Equal("orders", dlqMessage.OriginalTopic);
         Assert.Equal(2, dlqMessage.Partition);
         Assert.Equal(54321, dlqMessage.Offset);
@@ -482,6 +476,7 @@ public class DeadLetterQueueTests
     public void BuildDeadLetterMessage_WithAdditionalMetadata_Includes()
     {
         // Arrange
+        var messageKey = CreateTestKey("order");
         var consumeResult = new ConsumeResult<string, string>
         {
             Topic = "orders",
@@ -489,7 +484,7 @@ public class DeadLetterQueueTests
             Offset = new Offset(100),
             Message = new Message<string, string>
             {
-                Key = "order-123",
+                Key = messageKey,
                 Value = "test-value"
             }
         };
