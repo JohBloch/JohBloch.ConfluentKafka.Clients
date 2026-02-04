@@ -103,31 +103,17 @@ namespace JohBloch.ConfluentKafka.Clients.Tests
     }
 
     /// <summary>
-    /// Schema registry factory stub creating a client pointed at localhost.
-    /// </summary>
-    internal sealed class SrStub : ISchemaRegistryFactory
-    {
-        private readonly Action<IDisposable>? _track;
-
-        public SrStub(Action<IDisposable>? track = null)
-        {
-            _track = track;
-        }
-
-        /// <summary>Creates a cached schema registry client.</summary>
-        public ISchemaRegistryClient CreateClient()
-        {
-            var client = new CachedSchemaRegistryClient(new SchemaRegistryConfig { Url = "http://localhost:8081" });
-            _track?.Invoke(client);
-            return client;
-        }
-    }
-
-    /// <summary>
     /// Tests verifying routing to default, retry, and DLQ topics for single and batch sends.
     /// </summary>
     public class KafkaProducerClientMultiTopicTests : DisposableTestBase
     {
+        private JohBloch.ConfluentKafka.SchemaRegistryExtClient.Interfaces.ISchemaRegistryExtClient CreateSchemaRegistry()
+        {
+            return Track(new JohBloch.ConfluentKafka.SchemaRegistryExtClient.Services.SchemaRegistryExtClient(
+                new SchemaRegistryConfig { Url = "http://localhost:8081" },
+                tokenRefreshFunc: null));
+        }
+
         /// <summary>
         /// Creates a producer client configured with three logical producer keys: default, retry, and dlq.
         /// </summary>
@@ -140,7 +126,7 @@ namespace JohBloch.ConfluentKafka.Clients.Tests
                 ["dlq"]     = new KafkaProducerOptions { BootstrapServers = "localhost:9092", ApplicationId = "app", Topic = "topic-a-dlq", BatchSizeKB = 1, QueueBufferMaxMessages = 1000, CompressionType = "none" }
             };
             ILogger<KafkaProducerClient> logger = NullLogger<KafkaProducerClient>.Instance;
-            return Track(new KafkaProducerClient(opts, new SecStub(), new SrStub(TrackDisposable), logger));
+            return Track(new KafkaProducerClient(opts, new SecStub(), CreateSchemaRegistry(), NullLoggerFactory.Instance, logger));
         }
 
         /// <summary>
