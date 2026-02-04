@@ -1,0 +1,247 @@
+﻿#nullable enable
+JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions
+JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.BootstrapServers.get -> string!
+JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.BootstrapServers.set -> void
+JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.Consumer.get -> JohBloch.ConfluentKafka.Clients.Models.KafkaConsumerOptions!
+JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.Consumer.set -> void
+JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.ConsumerConfig.get -> System.Collections.Generic.Dictionary<string!, string!>!
+JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.ConsumerConfig.set -> void
+JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.GlobalProducerConfig.get -> System.Collections.Generic.Dictionary<string!, string!>!
+JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.GlobalProducerConfig.set -> void
+JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.GroupId.get -> string!
+JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.GroupId.set -> void
+JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.KafkaClientOptions() -> void
+JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.OAuthClientId.get -> string?
+JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.OAuthClientId.set -> void
+JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.OAuthClientSecret.get -> string?
+JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.OAuthClientSecret.set -> void
+JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.OAuthIdentityPoolId.get -> string?
+JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.OAuthIdentityPoolId.set -> void
+JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.OAuthLogicalCluster.get -> string?
+JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.OAuthLogicalCluster.set -> void
+JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.OAuthScope.get -> string?
+JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.OAuthScope.set -> void
+JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.OAuthTokenEndpoint.get -> string?
+JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.OAuthTokenEndpoint.set -> void
+JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.PerProducerConfigs.get -> System.Collections.Generic.Dictionary<string!, System.Collections.Generic.Dictionary<string!, string!>!>!
+JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.PerProducerConfigs.set -> void
+JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.Producers.get -> System.Collections.Generic.Dictionary<string!, JohBloch.ConfluentKafka.Clients.Models.KafkaProducerOptions!>!
+JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.Producers.set -> void
+JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.SchemaRegistryUrl.get -> string!
+JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.SchemaRegistryUrl.set -> void
+JohBloch.ConfluentKafka.Clients.Core.KafkaCoreServiceCollectionExtensions
+JohBloch.ConfluentKafka.Clients.Interfaces.IKafkaConsumerClient
+JohBloch.ConfluentKafka.Clients.Interfaces.IKafkaConsumerClient.Assignment.get -> System.Collections.Generic.List<Confluent.Kafka.TopicPartition!>!
+JohBloch.ConfluentKafka.Clients.Interfaces.IKafkaConsumerClient.Commit() -> void
+JohBloch.ConfluentKafka.Clients.Interfaces.IKafkaConsumerClient.Commit<T>(Confluent.Kafka.ConsumeResult<string!, T>! result) -> void
+JohBloch.ConfluentKafka.Clients.Interfaces.IKafkaConsumerClient.ConsumeAsync<T>(System.Threading.CancellationToken ct = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Confluent.Kafka.ConsumeResult<string!, T>?>!
+JohBloch.ConfluentKafka.Clients.Interfaces.IKafkaConsumerClient.ConsumeBatchAsync<T>(int maxMessages, int timeoutMs = 5000, System.Threading.CancellationToken ct = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.List<Confluent.Kafka.ConsumeResult<string!, T>!>!>!
+JohBloch.ConfluentKafka.Clients.Interfaces.IKafkaConsumerClient.Subscribe(System.Collections.Generic.IEnumerable<string!>! topics) -> void
+JohBloch.ConfluentKafka.Clients.Interfaces.IKafkaConsumerClient.Subscription.get -> System.Collections.Generic.List<string!>!
+JohBloch.ConfluentKafka.Clients.Interfaces.IKafkaConsumerClient.Unsubscribe() -> void
+JohBloch.ConfluentKafka.Clients.Interfaces.IKafkaProducerClient
+JohBloch.ConfluentKafka.Clients.Interfaces.IKafkaProducerClient.ProduceAsync<T>(System.Collections.Generic.IEnumerable<T>! messages, System.Func<T, string!>! keySelector, string! producerKey, Confluent.Kafka.Headers? headers, Confluent.Kafka.ISerializer<T>? serializer, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<JohBloch.ConfluentKafka.Clients.Models.BatchResult!>!
+JohBloch.ConfluentKafka.Clients.Interfaces.IKafkaProducerClient.ProduceAsync<T>(T message, string! key, string! producerKey, Confluent.Kafka.Headers? headers, Confluent.Kafka.ISerializer<T>? serializer, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<JohBloch.ConfluentKafka.Clients.Models.KafkaResult!>!
+JohBloch.ConfluentKafka.Clients.Interfaces.IKafkaProducerClient.SendBatchAsync<T>(System.Collections.Generic.IEnumerable<T>! messages, System.Func<T, string!>! keySelector, string! producerKey, Confluent.Kafka.Headers? headers = null, Confluent.Kafka.ISerializer<T>? serializer = null, System.Threading.CancellationToken ct = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<JohBloch.ConfluentKafka.Clients.Models.BatchResult!>!
+JohBloch.ConfluentKafka.Clients.Interfaces.IKafkaProducerClient.SendMessageAsync<T>(T message, string! key, string! producerKey, Confluent.Kafka.Headers? headers = null, Confluent.Kafka.ISerializer<T>? serializer = null, System.Threading.CancellationToken ct = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<JohBloch.ConfluentKafka.Clients.Models.KafkaResult!>!
+JohBloch.ConfluentKafka.Clients.Interfaces.IKafkaProducerClient.SendMessageWithSchemaAsync<T>(T message, string! key, string! producerKey, JohBloch.ConfluentKafka.Clients.Models.SchemaType schemaType, Confluent.Kafka.Headers? headers = null, System.Threading.CancellationToken ct = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<JohBloch.ConfluentKafka.Clients.Models.KafkaResult!>!
+JohBloch.ConfluentKafka.Clients.Interfaces.IKafkaProducerClient.SendToDeadLetterQueueAsync(JohBloch.ConfluentKafka.Clients.Models.DeadLetterMessage! dlqMessage) -> System.Threading.Tasks.Task<JohBloch.ConfluentKafka.Clients.Models.KafkaResult!>!
+JohBloch.ConfluentKafka.Clients.Interfaces.IKafkaProducerClient.SendToDeadLetterQueueAsync(JohBloch.ConfluentKafka.Clients.Models.DeadLetterMessage! dlqMessage, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<JohBloch.ConfluentKafka.Clients.Models.KafkaResult!>!
+JohBloch.ConfluentKafka.Clients.Interfaces.IKafkaProducerClient.SendToDeadLetterQueueAsync(JohBloch.ConfluentKafka.Clients.Models.DeadLetterMessage! dlqMessage, string! producerKey) -> System.Threading.Tasks.Task<JohBloch.ConfluentKafka.Clients.Models.KafkaResult!>!
+JohBloch.ConfluentKafka.Clients.Interfaces.IKafkaProducerClient.SendToDeadLetterQueueAsync(JohBloch.ConfluentKafka.Clients.Models.DeadLetterMessage! dlqMessage, string! producerKey, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<JohBloch.ConfluentKafka.Clients.Models.KafkaResult!>!
+JohBloch.ConfluentKafka.Clients.Interfaces.IKafkaProducerClient.SendToDeadLetterQueueAsync(JohBloch.ConfluentKafka.Clients.Models.DeadLetterMessage! dlqMessage, string? key, string! producerKey, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<JohBloch.ConfluentKafka.Clients.Models.KafkaResult!>!
+JohBloch.ConfluentKafka.Clients.Interfaces.IKafkaProducerClient.SendToDeadLetterQueueAsync<TKey, TValue>(Confluent.Kafka.ConsumeResult<TKey, TValue>! originalMessage, System.Exception! exception) -> System.Threading.Tasks.Task<JohBloch.ConfluentKafka.Clients.Models.KafkaResult!>!
+JohBloch.ConfluentKafka.Clients.Interfaces.IKafkaProducerClient.SendToDeadLetterQueueAsync<TKey, TValue>(Confluent.Kafka.ConsumeResult<TKey, TValue>! originalMessage, System.Exception! exception, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<JohBloch.ConfluentKafka.Clients.Models.KafkaResult!>!
+JohBloch.ConfluentKafka.Clients.Interfaces.IKafkaProducerClient.SendToDeadLetterQueueAsync<TKey, TValue>(Confluent.Kafka.ConsumeResult<TKey, TValue>! originalMessage, System.Exception! exception, int retryCount) -> System.Threading.Tasks.Task<JohBloch.ConfluentKafka.Clients.Models.KafkaResult!>!
+JohBloch.ConfluentKafka.Clients.Interfaces.IKafkaProducerClient.SendToDeadLetterQueueAsync<TKey, TValue>(Confluent.Kafka.ConsumeResult<TKey, TValue>! originalMessage, System.Exception! exception, int retryCount, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<JohBloch.ConfluentKafka.Clients.Models.KafkaResult!>!
+JohBloch.ConfluentKafka.Clients.Interfaces.IKafkaProducerClient.SendToDeadLetterQueueAsync<TKey, TValue>(Confluent.Kafka.ConsumeResult<TKey, TValue>! originalMessage, System.Exception! exception, int retryCount, string! producerKey, System.Collections.Generic.Dictionary<string!, string!>? additionalMetadata, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<JohBloch.ConfluentKafka.Clients.Models.KafkaResult!>!
+JohBloch.ConfluentKafka.Clients.Interfaces.IMessageDeserializer<T>
+JohBloch.ConfluentKafka.Clients.Interfaces.IMessageDeserializer<T>.DeserializeAsync(byte[]! data, Confluent.Kafka.SerializationContext context) -> System.Threading.Tasks.Task<T>!
+JohBloch.ConfluentKafka.Clients.Interfaces.IMessageSerializer<T>
+JohBloch.ConfluentKafka.Clients.Interfaces.IMessageSerializer<T>.SerializeAsync(T value, Confluent.Kafka.SerializationContext context) -> System.Threading.Tasks.Task<byte[]!>!
+JohBloch.ConfluentKafka.Clients.Models.BatchResult
+JohBloch.ConfluentKafka.Clients.Models.BatchResult.AddFailure(string! error) -> void
+JohBloch.ConfluentKafka.Clients.Models.BatchResult.AddResult(JohBloch.ConfluentKafka.Clients.Models.KafkaResult! result) -> void
+JohBloch.ConfluentKafka.Clients.Models.BatchResult.AddSuccess(string! topic, int partition, long offset, string! key) -> void
+JohBloch.ConfluentKafka.Clients.Models.BatchResult.BatchResult(int total) -> void
+JohBloch.ConfluentKafka.Clients.Models.BatchResult.ErrorMessage.get -> string?
+JohBloch.ConfluentKafka.Clients.Models.BatchResult.ErrorMessage.set -> void
+JohBloch.ConfluentKafka.Clients.Models.BatchResult.FailureCount.get -> int
+JohBloch.ConfluentKafka.Clients.Models.BatchResult.Results.get -> System.Collections.Generic.IReadOnlyList<JohBloch.ConfluentKafka.Clients.Models.KafkaResult!>!
+JohBloch.ConfluentKafka.Clients.Models.BatchResult.SucceedEmpty() -> JohBloch.ConfluentKafka.Clients.Models.BatchResult!
+JohBloch.ConfluentKafka.Clients.Models.BatchResult.SuccessCount.get -> int
+JohBloch.ConfluentKafka.Clients.Models.BatchResult.TotalMessages.get -> int
+JohBloch.ConfluentKafka.Clients.Models.DeadLetterMessage
+JohBloch.ConfluentKafka.Clients.Models.DeadLetterMessage.ApplicationName.get -> string?
+JohBloch.ConfluentKafka.Clients.Models.DeadLetterMessage.ApplicationName.set -> void
+JohBloch.ConfluentKafka.Clients.Models.DeadLetterMessage.DeadLetterMessage() -> void
+JohBloch.ConfluentKafka.Clients.Models.DeadLetterMessage.ErrorMessage.get -> string!
+JohBloch.ConfluentKafka.Clients.Models.DeadLetterMessage.ErrorMessage.set -> void
+JohBloch.ConfluentKafka.Clients.Models.DeadLetterMessage.ErrorType.get -> string!
+JohBloch.ConfluentKafka.Clients.Models.DeadLetterMessage.ErrorType.set -> void
+JohBloch.ConfluentKafka.Clients.Models.DeadLetterMessage.FailedAt.get -> System.DateTime
+JohBloch.ConfluentKafka.Clients.Models.DeadLetterMessage.FailedAt.set -> void
+JohBloch.ConfluentKafka.Clients.Models.DeadLetterMessage.Headers.get -> System.Collections.Generic.Dictionary<string!, string!>!
+JohBloch.ConfluentKafka.Clients.Models.DeadLetterMessage.Headers.set -> void
+JohBloch.ConfluentKafka.Clients.Models.DeadLetterMessage.Hostname.get -> string?
+JohBloch.ConfluentKafka.Clients.Models.DeadLetterMessage.Hostname.set -> void
+JohBloch.ConfluentKafka.Clients.Models.DeadLetterMessage.Metadata.get -> System.Collections.Generic.Dictionary<string!, string!>!
+JohBloch.ConfluentKafka.Clients.Models.DeadLetterMessage.Metadata.set -> void
+JohBloch.ConfluentKafka.Clients.Models.DeadLetterMessage.Offset.get -> long
+JohBloch.ConfluentKafka.Clients.Models.DeadLetterMessage.Offset.set -> void
+JohBloch.ConfluentKafka.Clients.Models.DeadLetterMessage.OriginalKey.get -> string?
+JohBloch.ConfluentKafka.Clients.Models.DeadLetterMessage.OriginalKey.set -> void
+JohBloch.ConfluentKafka.Clients.Models.DeadLetterMessage.OriginalTopic.get -> string!
+JohBloch.ConfluentKafka.Clients.Models.DeadLetterMessage.OriginalTopic.set -> void
+JohBloch.ConfluentKafka.Clients.Models.DeadLetterMessage.OriginalValueBase64.get -> string?
+JohBloch.ConfluentKafka.Clients.Models.DeadLetterMessage.OriginalValueBase64.set -> void
+JohBloch.ConfluentKafka.Clients.Models.DeadLetterMessage.Partition.get -> int
+JohBloch.ConfluentKafka.Clients.Models.DeadLetterMessage.Partition.set -> void
+JohBloch.ConfluentKafka.Clients.Models.DeadLetterMessage.RetryCount.get -> int
+JohBloch.ConfluentKafka.Clients.Models.DeadLetterMessage.RetryCount.set -> void
+JohBloch.ConfluentKafka.Clients.Models.DeadLetterMessage.Severity.get -> string!
+JohBloch.ConfluentKafka.Clients.Models.DeadLetterMessage.Severity.set -> void
+JohBloch.ConfluentKafka.Clients.Models.DeadLetterMessage.StackTrace.get -> string?
+JohBloch.ConfluentKafka.Clients.Models.DeadLetterMessage.StackTrace.set -> void
+JohBloch.ConfluentKafka.Clients.Models.HealthStatus
+JohBloch.ConfluentKafka.Clients.Models.HealthStatus.Details.get -> System.Collections.Generic.Dictionary<string!, string!>!
+JohBloch.ConfluentKafka.Clients.Models.HealthStatus.Details.set -> void
+JohBloch.ConfluentKafka.Clients.Models.HealthStatus.ErrorMessage.get -> string?
+JohBloch.ConfluentKafka.Clients.Models.HealthStatus.ErrorMessage.set -> void
+JohBloch.ConfluentKafka.Clients.Models.HealthStatus.HealthStatus() -> void
+JohBloch.ConfluentKafka.Clients.Models.HealthStatus.IsHealthy.get -> bool
+JohBloch.ConfluentKafka.Clients.Models.HealthStatus.IsHealthy.set -> void
+JohBloch.ConfluentKafka.Clients.Models.HealthStatus.IsKafkaConnected.get -> bool
+JohBloch.ConfluentKafka.Clients.Models.HealthStatus.IsKafkaConnected.set -> void
+JohBloch.ConfluentKafka.Clients.Models.HealthStatus.IsSchemaRegistryConnected.get -> bool
+JohBloch.ConfluentKafka.Clients.Models.HealthStatus.IsSchemaRegistryConnected.set -> void
+JohBloch.ConfluentKafka.Clients.Models.KafkaConsumerOptions
+JohBloch.ConfluentKafka.Clients.Models.KafkaConsumerOptions.AutoDetectSchemaType.get -> bool
+JohBloch.ConfluentKafka.Clients.Models.KafkaConsumerOptions.AutoDetectSchemaType.set -> void
+JohBloch.ConfluentKafka.Clients.Models.KafkaConsumerOptions.AutoOffsetReset.get -> string!
+JohBloch.ConfluentKafka.Clients.Models.KafkaConsumerOptions.AutoOffsetReset.set -> void
+JohBloch.ConfluentKafka.Clients.Models.KafkaConsumerOptions.BootstrapServers.get -> string!
+JohBloch.ConfluentKafka.Clients.Models.KafkaConsumerOptions.BootstrapServers.set -> void
+JohBloch.ConfluentKafka.Clients.Models.KafkaConsumerOptions.DefaultSchemaType.get -> JohBloch.ConfluentKafka.Clients.Models.SchemaType
+JohBloch.ConfluentKafka.Clients.Models.KafkaConsumerOptions.DefaultSchemaType.set -> void
+JohBloch.ConfluentKafka.Clients.Models.KafkaConsumerOptions.EnableAutoCommit.get -> bool
+JohBloch.ConfluentKafka.Clients.Models.KafkaConsumerOptions.EnableAutoCommit.set -> void
+JohBloch.ConfluentKafka.Clients.Models.KafkaConsumerOptions.GroupId.get -> string!
+JohBloch.ConfluentKafka.Clients.Models.KafkaConsumerOptions.GroupId.set -> void
+JohBloch.ConfluentKafka.Clients.Models.KafkaConsumerOptions.HeartbeatIntervalMs.get -> int
+JohBloch.ConfluentKafka.Clients.Models.KafkaConsumerOptions.HeartbeatIntervalMs.set -> void
+JohBloch.ConfluentKafka.Clients.Models.KafkaConsumerOptions.KafkaConsumerOptions() -> void
+JohBloch.ConfluentKafka.Clients.Models.KafkaConsumerOptions.SessionTimeoutMs.get -> int
+JohBloch.ConfluentKafka.Clients.Models.KafkaConsumerOptions.SessionTimeoutMs.set -> void
+JohBloch.ConfluentKafka.Clients.Models.KafkaConsumerOptions.Topic.get -> string!
+JohBloch.ConfluentKafka.Clients.Models.KafkaConsumerOptions.Topic.set -> void
+JohBloch.ConfluentKafka.Clients.Models.KafkaConsumerOptions.TopicSchemaTypes.get -> System.Collections.Generic.Dictionary<string!, JohBloch.ConfluentKafka.Clients.Models.SchemaType>!
+JohBloch.ConfluentKafka.Clients.Models.KafkaConsumerOptions.TopicSchemaTypes.set -> void
+JohBloch.ConfluentKafka.Clients.Models.KafkaOptions
+JohBloch.ConfluentKafka.Clients.Models.KafkaOptions.KafkaConsumerOptions.get -> System.Collections.Generic.Dictionary<string!, JohBloch.ConfluentKafka.Clients.Models.KafkaConsumerOptions!>!
+JohBloch.ConfluentKafka.Clients.Models.KafkaOptions.KafkaConsumerOptions.set -> void
+JohBloch.ConfluentKafka.Clients.Models.KafkaOptions.KafkaOptions() -> void
+JohBloch.ConfluentKafka.Clients.Models.KafkaOptions.KafkaProducerOptions.get -> System.Collections.Generic.Dictionary<string!, JohBloch.ConfluentKafka.Clients.Models.KafkaProducerOptions!>!
+JohBloch.ConfluentKafka.Clients.Models.KafkaOptions.KafkaProducerOptions.set -> void
+JohBloch.ConfluentKafka.Clients.Models.KafkaOptions.SchemaRegistryOptions.get -> JohBloch.ConfluentKafka.Clients.Models.SchemaRegistryOptions!
+JohBloch.ConfluentKafka.Clients.Models.KafkaOptions.SchemaRegistryOptions.set -> void
+JohBloch.ConfluentKafka.Clients.Models.KafkaProducerOptions
+JohBloch.ConfluentKafka.Clients.Models.KafkaProducerOptions.ApplicationId.get -> string!
+JohBloch.ConfluentKafka.Clients.Models.KafkaProducerOptions.ApplicationId.set -> void
+JohBloch.ConfluentKafka.Clients.Models.KafkaProducerOptions.AutoDlqOnDeliveryFailure.get -> bool
+JohBloch.ConfluentKafka.Clients.Models.KafkaProducerOptions.AutoDlqOnDeliveryFailure.set -> void
+JohBloch.ConfluentKafka.Clients.Models.KafkaProducerOptions.BatchSizeKB.get -> int
+JohBloch.ConfluentKafka.Clients.Models.KafkaProducerOptions.BatchSizeKB.set -> void
+JohBloch.ConfluentKafka.Clients.Models.KafkaProducerOptions.BootstrapServers.get -> string!
+JohBloch.ConfluentKafka.Clients.Models.KafkaProducerOptions.BootstrapServers.set -> void
+JohBloch.ConfluentKafka.Clients.Models.KafkaProducerOptions.CompressionLevel.get -> int
+JohBloch.ConfluentKafka.Clients.Models.KafkaProducerOptions.CompressionLevel.set -> void
+JohBloch.ConfluentKafka.Clients.Models.KafkaProducerOptions.CompressionType.get -> string!
+JohBloch.ConfluentKafka.Clients.Models.KafkaProducerOptions.CompressionType.set -> void
+JohBloch.ConfluentKafka.Clients.Models.KafkaProducerOptions.DeadLetterQueueTopicPattern.get -> string!
+JohBloch.ConfluentKafka.Clients.Models.KafkaProducerOptions.DeadLetterQueueTopicPattern.set -> void
+JohBloch.ConfluentKafka.Clients.Models.KafkaProducerOptions.IncludeStackTraceInDlq.get -> bool
+JohBloch.ConfluentKafka.Clients.Models.KafkaProducerOptions.IncludeStackTraceInDlq.set -> void
+JohBloch.ConfluentKafka.Clients.Models.KafkaProducerOptions.KafkaProducerOptions() -> void
+JohBloch.ConfluentKafka.Clients.Models.KafkaProducerOptions.LingerMS.get -> int
+JohBloch.ConfluentKafka.Clients.Models.KafkaProducerOptions.LingerMS.set -> void
+JohBloch.ConfluentKafka.Clients.Models.KafkaProducerOptions.QueueBufferMaxMessages.get -> int
+JohBloch.ConfluentKafka.Clients.Models.KafkaProducerOptions.QueueBufferMaxMessages.set -> void
+JohBloch.ConfluentKafka.Clients.Models.KafkaProducerOptions.Topic.get -> string!
+JohBloch.ConfluentKafka.Clients.Models.KafkaProducerOptions.Topic.set -> void
+JohBloch.ConfluentKafka.Clients.Models.KafkaResult
+JohBloch.ConfluentKafka.Clients.Models.KafkaResult.DlqAttempted.get -> bool
+JohBloch.ConfluentKafka.Clients.Models.KafkaResult.DlqAttempted.set -> void
+JohBloch.ConfluentKafka.Clients.Models.KafkaResult.DlqErrorMessage.get -> string?
+JohBloch.ConfluentKafka.Clients.Models.KafkaResult.DlqErrorMessage.set -> void
+JohBloch.ConfluentKafka.Clients.Models.KafkaResult.DlqOffset.get -> long?
+JohBloch.ConfluentKafka.Clients.Models.KafkaResult.DlqOffset.set -> void
+JohBloch.ConfluentKafka.Clients.Models.KafkaResult.DlqPartition.get -> int?
+JohBloch.ConfluentKafka.Clients.Models.KafkaResult.DlqPartition.set -> void
+JohBloch.ConfluentKafka.Clients.Models.KafkaResult.DlqSuccess.get -> bool
+JohBloch.ConfluentKafka.Clients.Models.KafkaResult.DlqSuccess.set -> void
+JohBloch.ConfluentKafka.Clients.Models.KafkaResult.DlqTopic.get -> string?
+JohBloch.ConfluentKafka.Clients.Models.KafkaResult.DlqTopic.set -> void
+JohBloch.ConfluentKafka.Clients.Models.KafkaResult.ErrorMessage.get -> string?
+JohBloch.ConfluentKafka.Clients.Models.KafkaResult.ErrorMessage.set -> void
+JohBloch.ConfluentKafka.Clients.Models.KafkaResult.KafkaResult() -> void
+JohBloch.ConfluentKafka.Clients.Models.KafkaResult.KafkaResult(bool success, string! topic = "", int partition = 0, long offset = 0, string? key = null, string? errorMessage = null) -> void
+JohBloch.ConfluentKafka.Clients.Models.KafkaResult.Key.get -> string?
+JohBloch.ConfluentKafka.Clients.Models.KafkaResult.Key.set -> void
+JohBloch.ConfluentKafka.Clients.Models.KafkaResult.Offset.get -> long
+JohBloch.ConfluentKafka.Clients.Models.KafkaResult.Offset.set -> void
+JohBloch.ConfluentKafka.Clients.Models.KafkaResult.Partition.get -> int
+JohBloch.ConfluentKafka.Clients.Models.KafkaResult.Partition.set -> void
+JohBloch.ConfluentKafka.Clients.Models.KafkaResult.Success.get -> bool
+JohBloch.ConfluentKafka.Clients.Models.KafkaResult.Success.set -> void
+JohBloch.ConfluentKafka.Clients.Models.KafkaResult.Topic.get -> string?
+JohBloch.ConfluentKafka.Clients.Models.KafkaResult.Topic.set -> void
+JohBloch.ConfluentKafka.Clients.Models.SchemaRegistryOptions
+JohBloch.ConfluentKafka.Clients.Models.SchemaRegistryOptions.ClientId.get -> string!
+JohBloch.ConfluentKafka.Clients.Models.SchemaRegistryOptions.ClientId.set -> void
+JohBloch.ConfluentKafka.Clients.Models.SchemaRegistryOptions.ClientSecret.get -> string!
+JohBloch.ConfluentKafka.Clients.Models.SchemaRegistryOptions.ClientSecret.set -> void
+JohBloch.ConfluentKafka.Clients.Models.SchemaRegistryOptions.IdentityPoolId.get -> string!
+JohBloch.ConfluentKafka.Clients.Models.SchemaRegistryOptions.IdentityPoolId.set -> void
+JohBloch.ConfluentKafka.Clients.Models.SchemaRegistryOptions.LogicalCluster.get -> string!
+JohBloch.ConfluentKafka.Clients.Models.SchemaRegistryOptions.LogicalCluster.set -> void
+JohBloch.ConfluentKafka.Clients.Models.SchemaRegistryOptions.SchemaRegistryOptions() -> void
+JohBloch.ConfluentKafka.Clients.Models.SchemaRegistryOptions.Scope.get -> string!
+JohBloch.ConfluentKafka.Clients.Models.SchemaRegistryOptions.Scope.set -> void
+JohBloch.ConfluentKafka.Clients.Models.SchemaRegistryOptions.TokenEndpointUrl.get -> string!
+JohBloch.ConfluentKafka.Clients.Models.SchemaRegistryOptions.TokenEndpointUrl.set -> void
+JohBloch.ConfluentKafka.Clients.Models.SchemaRegistryOptions.Url.get -> string!
+JohBloch.ConfluentKafka.Clients.Models.SchemaRegistryOptions.Url.set -> void
+JohBloch.ConfluentKafka.Clients.Models.SchemaType
+JohBloch.ConfluentKafka.Clients.Models.SchemaType.Avro = 0 -> JohBloch.ConfluentKafka.Clients.Models.SchemaType
+JohBloch.ConfluentKafka.Clients.Models.SchemaType.Json = 2 -> JohBloch.ConfluentKafka.Clients.Models.SchemaType
+JohBloch.ConfluentKafka.Clients.Models.SchemaType.Protobuf = 1 -> JohBloch.ConfluentKafka.Clients.Models.SchemaType
+JohBloch.ConfluentKafka.Clients.Security.AccessToken
+JohBloch.ConfluentKafka.Clients.Security.AccessToken.AccessToken(string! accessTokenValue, System.DateTimeOffset expiresOn) -> void
+JohBloch.ConfluentKafka.Clients.Security.AccessToken.AccessTokenValue.get -> string!
+JohBloch.ConfluentKafka.Clients.Security.AccessToken.ExpiresOn.get -> System.DateTimeOffset
+JohBloch.ConfluentKafka.Clients.Security.ISecurityTokenProvider
+JohBloch.ConfluentKafka.Clients.Security.ISecurityTokenProvider.GetAccessTokenAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<JohBloch.ConfluentKafka.Clients.Security.AccessToken!>!
+JohBloch.ConfluentKafka.Clients.Security.ISecurityTokenProvider.GetExtensions() -> System.Collections.Generic.Dictionary<string!, string!>?
+JohBloch.ConfluentKafka.Clients.Security.ISecurityTokenProvider.GetKafkaSaslConfig() -> System.Collections.Generic.Dictionary<string!, string!>?
+JohBloch.ConfluentKafka.Clients.Security.ISecurityTokenProvider.GetTokenStatus() -> JohBloch.ConfluentKafka.Clients.Security.TokenStatus!
+JohBloch.ConfluentKafka.Clients.Security.OAuthSecurityTokenProvider
+JohBloch.ConfluentKafka.Clients.Security.OAuthSecurityTokenProvider.GetAccessTokenAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<JohBloch.ConfluentKafka.Clients.Security.AccessToken!>!
+JohBloch.ConfluentKafka.Clients.Security.OAuthSecurityTokenProvider.GetExtensions() -> System.Collections.Generic.Dictionary<string!, string!>?
+JohBloch.ConfluentKafka.Clients.Security.OAuthSecurityTokenProvider.GetKafkaSaslConfig() -> System.Collections.Generic.Dictionary<string!, string!>?
+JohBloch.ConfluentKafka.Clients.Security.OAuthSecurityTokenProvider.GetTokenStatus() -> JohBloch.ConfluentKafka.Clients.Security.TokenStatus!
+JohBloch.ConfluentKafka.Clients.Security.OAuthSecurityTokenProvider.OAuthSecurityTokenProvider(Microsoft.Extensions.Options.IOptions<JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions!>! options, Microsoft.Extensions.Logging.ILogger<JohBloch.ConfluentKafka.Clients.Security.OAuthSecurityTokenProvider!>! logger, System.Net.Http.IHttpClientFactory! httpClientFactory) -> void
+JohBloch.ConfluentKafka.Clients.Security.TokenStatus
+JohBloch.ConfluentKafka.Clients.Security.TokenStatus.ExpiresAt.get -> System.DateTime
+JohBloch.ConfluentKafka.Clients.Security.TokenStatus.TokenStatus(System.DateTime expiresAt) -> void
+JohBloch.ConfluentKafka.Clients.Services.KafkaConfigValidator
+JohBloch.ConfluentKafka.Clients.Services.Serialization.SchemaRegistryWireFormat
+const JohBloch.ConfluentKafka.Clients.Services.Serialization.SchemaRegistryWireFormat.MagicByte = 0 -> byte
+const JohBloch.ConfluentKafka.Clients.Services.Serialization.SchemaRegistryWireFormat.MinimumMessageLength = 5 -> int
+const JohBloch.ConfluentKafka.Clients.Services.Serialization.SchemaRegistryWireFormat.PayloadOffset = 5 -> int
+static JohBloch.ConfluentKafka.Clients.Core.KafkaCoreServiceCollectionExtensions.AddKafkaCore(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, System.Action<JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions!>! configureOptions) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
+static JohBloch.ConfluentKafka.Clients.Services.KafkaConfigValidator.ValidateConsumer(string! consumerName, string? groupId) -> string?
+static JohBloch.ConfluentKafka.Clients.Services.KafkaConfigValidator.ValidateGlobal(string? bootstrapServers) -> string?
+static JohBloch.ConfluentKafka.Clients.Services.Serialization.SchemaRegistryWireFormat.ExtractPayload(byte[]! data) -> byte[]!
+static JohBloch.ConfluentKafka.Clients.Services.Serialization.SchemaRegistryWireFormat.ExtractSchemaId(byte[]! data) -> int
+static JohBloch.ConfluentKafka.Clients.Services.Serialization.SchemaRegistryWireFormat.HasWireFormat(byte[]! data) -> bool

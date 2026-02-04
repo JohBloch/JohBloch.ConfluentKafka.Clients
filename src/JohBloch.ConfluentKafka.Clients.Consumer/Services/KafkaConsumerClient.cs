@@ -338,8 +338,8 @@ namespace JohBloch.ConfluentKafka.Clients.Services
             };
 
             // Apply optional global configs and per-consumer overrides
-            KafkaProducerClient.KafkaConfigHelper.ApplyConfigDictionary(config, _globalConfig);
-            KafkaProducerClient.KafkaConfigHelper.ApplyConfigDictionary(config, _consumerOverrides);
+            ApplyConfigDictionary(config, _globalConfig);
+            ApplyConfigDictionary(config, _consumerOverrides);
 
             // Optional: let SAL provide additional SASL configs if necessary
             var salConfig = _securityProvider.GetKafkaSaslConfig();
@@ -349,7 +349,7 @@ namespace JohBloch.ConfluentKafka.Clients.Services
                 // Expectation: SAL includes keys like 'sasl.mechanism', 'sasl.oauthbearer.method', and token endpoint url when using OIDC
                 config.SecurityProtocol = SecurityProtocol.SaslSsl;
 
-                KafkaProducerClient.KafkaConfigHelper.ApplyConfigDictionary(config, salConfig);
+                ApplyConfigDictionary(config, salConfig);
 
                 // If SAL did not explicitly set mechanism/method, do not force OIDC
                 // Only set OAuth/OIDC when required keys exist
@@ -370,6 +370,19 @@ namespace JohBloch.ConfluentKafka.Clients.Services
             }
 
             return config;
+        }
+
+        private static void ApplyConfigDictionary(ClientConfig config, IDictionary<string, string>? configDictionary)
+        {
+            if (configDictionary is null) return;
+
+            foreach (var kvp in configDictionary)
+            {
+                if (!string.IsNullOrWhiteSpace(kvp.Value))
+                {
+                    config.Set(kvp.Key, kvp.Value);
+                }
+            }
         }
 
         /// <summary>

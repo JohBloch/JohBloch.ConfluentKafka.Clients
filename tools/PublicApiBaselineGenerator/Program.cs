@@ -1,8 +1,12 @@
+using System.Collections.Immutable;
 using System.Reflection;
 using System.Runtime.Loader;
+using System.Text;
 using Microsoft.Build.Locator;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.MSBuild;
+using Microsoft.CodeAnalysis.Text;
 
 static int Fail(string message)
 {
@@ -10,7 +14,7 @@ static int Fail(string message)
     return 1;
 }
 
-string repoRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
+string repoRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
 string solutionPath = Path.Combine(repoRoot, "JohBloch.ConfluentKafka.Clients.sln");
 string projectName = "JohBloch.ConfluentKafka.Clients";
 string configuration = "Release";
@@ -85,83 +89,6 @@ if (string.IsNullOrWhiteSpace(nugetPackages))
     nugetPackages = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".nuget", "packages");
 }
 
-string analyzerAssemblyPath = Path.Combine(
-    nugetPackages,
-    "microsoft.codeanalysis.publicapianalyzers",
-    "3.3.4",
-    "analyzers",
-    "dotnet",
-    "cs",
-    "Microsoft.CodeAnalysis.PublicApiAnalyzers.dll");
-
-if (!File.Exists(analyzerAssemblyPath))
-{
-    return Fail($"Analyzer assembly not found: {analyzerAssemblyPath}\nUpdate the generator tool to match the analyzer package version in the library.");
-}
-
-Assembly analyzerAssembly = AssemblyLoadContext.Default.LoadFromAssemblyPath(analyzerAssemblyPath);
-
-Type? generatorType = analyzerAssembly.GetType("Microsoft.CodeAnalysis.PublicApiAnalyzers.PublicApiGenerator", throwOnError: false)
-    ?? analyzerAssembly.GetTypes().FirstOrDefault(t => t.Name is "PublicApiGenerator" or "PublicApiGenerator" && t.FullName?.Contains("PublicApi", StringComparison.OrdinalIgnoreCase) == true);
-
-if (generatorType is null)
-{
-    return Fail("Could not find PublicApiGenerator type in analyzer assembly.");
-}
-
-MethodInfo? generatorMethod = generatorType
-    .GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static)
-    .Where(m => m.ReturnType == typeof(string))
-    .OrderByDescending(m => m.IsPublic)
-    .FirstOrDefault(m =>
-    {
-        if (!m.Name.Contains("Generate", StringComparison.OrdinalIgnoreCase) &&
-            !m.Name.Contains("Get", StringComparison.OrdinalIgnoreCase))
-        {
-            return false;
-        }
-
-        var ps = m.GetParameters();
-        if (ps.Length < 1 || ps.Length > 3)
-        {
-            return false;
-        }
-
-        bool hasSymbol = ps.Any(p => typeof(ISymbol).IsAssignableFrom(p.ParameterType));
-        bool hasCompilation = ps.Any(p => typeof(Compilation).IsAssignableFrom(p.ParameterType));
-        return hasSymbol && hasCompilation;
-    });
-
-if (generatorMethod is null)
-{
-    return Fail("Could not find a usable generator method on PublicApiGenerator.");
-}
-
-ISymbol symbol = compilation.Assembly;
-
-object?[] invokeArgs = generatorMethod.GetParameters().Select(p =>
-{
-    if (typeof(ISymbol).IsAssignableFrom(p.ParameterType))
-    {
-        return symbol;
-    }
-
-    if (typeof(Compilation).IsAssignableFrom(p.ParameterType))
-    {
-        return compilation;
-    }
-
-    if (p.ParameterType == typeof(CancellationToken))
-    {
-        return CancellationToken.None;
-    }
-
-    return p.HasDefaultValue ? p.DefaultValue : null;
-}).ToArray();
-
-string apiText = (string)(generatorMethod.Invoke(null, invokeArgs)
-    ?? throw new InvalidOperationException("Public API generator returned null."));
-
 string projectDir = Path.GetDirectoryName(project.FilePath)
     ?? throw new InvalidOperationException("Project directory not found.");
 
@@ -174,25 +101,225 @@ if (!projectDir.StartsWith(repoRootWithSep, StringComparison.OrdinalIgnoreCase))
 string shippedPath = Path.Combine(projectDir, "PublicAPI.Shipped.txt");
 string unshippedPath = Path.Combine(projectDir, "PublicAPI.Unshipped.txt");
 
-static string NormalizeNewlines(string s) => s.Replace("\r\n", "\n").Replace("\r", "\n");
+string analyzerAssemblyPath = Path.Combine(
+    nugetPackages,
+    "microsoft.codeanalysis.publicapianalyzers",
+    "3.3.4",
+    "analyzers",
+    "dotnet",
+    "Microsoft.CodeAnalysis.PublicApiAnalyzers.dll");
 
-apiText = NormalizeNewlines(apiText).Trim();
+if (!File.Exists(analyzerAssemblyPath))
+{
+    return Fail($"Analyzer assembly not found: {analyzerAssemblyPath}\nUpdate the generator tool to match the analyzer package version in the library.");
+}
 
-var lines = apiText.Length == 0
-    ? Array.Empty<string>()
-    : apiText.Split('\n', StringSplitOptions.RemoveEmptyEntries)
-        .Select(l => l.TrimEnd())
-        .Where(l => l.Length > 0)
-        .Distinct(StringComparer.Ordinal)
-        .OrderBy(l => l, StringComparer.Ordinal)
-        .ToArray();
+Assembly analyzerAssembly = AssemblyLoadContext.Default.LoadFromAssemblyPath(analyzerAssemblyPath);
 
-string shippedContents = "#nullable enable\n" + string.Join("\n", lines) + (lines.Length == 0 ? "" : "\n");
+static IEnumerable<ISymbol> EnumerateSymbols(IAssemblySymbol assembly)
+{
+    foreach (var symbol in EnumerateNamespace(assembly.GlobalNamespace))
+    {
+        yield return symbol;
+    }
+
+    static IEnumerable<ISymbol> EnumerateNamespace(INamespaceSymbol ns)
+    {
+        foreach (var member in ns.GetMembers())
+        {
+            if (member is INamespaceSymbol nestedNs)
+            {
+                foreach (var nested in EnumerateNamespace(nestedNs))
+                {
+                    yield return nested;
+                }
+
+                continue;
+            }
+
+            if (member is INamedTypeSymbol type)
+            {
+                foreach (var nested in EnumerateType(type))
+                {
+                    yield return nested;
+                }
+            }
+        }
+    }
+
+    static IEnumerable<ISymbol> EnumerateType(INamedTypeSymbol type)
+    {
+        yield return type;
+
+        foreach (var member in type.GetMembers())
+        {
+            yield return member;
+
+            if (member is INamedTypeSymbol nestedType)
+            {
+                foreach (var nested in EnumerateType(nestedType))
+                {
+                    yield return nested;
+                }
+            }
+            else if (member is IPropertySymbol prop)
+            {
+                if (prop.GetMethod is not null)
+                {
+                    yield return prop.GetMethod;
+                }
+
+                if (prop.SetMethod is not null)
+                {
+                    yield return prop.SetMethod;
+                }
+            }
+            else if (member is IEventSymbol ev)
+            {
+                if (ev.AddMethod is not null)
+                {
+                    yield return ev.AddMethod;
+                }
+
+                if (ev.RemoveMethod is not null)
+                {
+                    yield return ev.RemoveMethod;
+                }
+            }
+        }
+    }
+}
+
+static object GetImmutableArrayEmpty(Type elementType)
+{
+    var immutableArrayType = typeof(ImmutableArray<>).MakeGenericType(elementType);
+
+    var emptyProp = immutableArrayType.GetProperty("Empty", BindingFlags.Public | BindingFlags.Static);
+    if (emptyProp is not null)
+    {
+        return emptyProp.GetValue(null)!;
+    }
+
+    var emptyField = immutableArrayType.GetField("Empty", BindingFlags.Public | BindingFlags.Static);
+    if (emptyField is not null)
+    {
+        return emptyField.GetValue(null)!;
+    }
+
+    // Fallback: default(ImmutableArray<T>) is empty.
+    return Activator.CreateInstance(immutableArrayType)!;
+}
+
+static object CreateInstanceAllowNonPublic(Type type, params object?[] args)
+{
+    var ctors = type.GetConstructors(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+    foreach (var ctor in ctors)
+    {
+        var parameters = ctor.GetParameters();
+        if (parameters.Length != args.Length)
+        {
+            continue;
+        }
+
+        bool match = true;
+        for (int i = 0; i < parameters.Length; i++)
+        {
+            var pType = parameters[i].ParameterType;
+            var arg = args[i];
+            if (arg is null)
+            {
+                if (pType.IsValueType && Nullable.GetUnderlyingType(pType) is null)
+                {
+                    match = false;
+                    break;
+                }
+
+                continue;
+            }
+
+            if (!pType.IsInstanceOfType(arg))
+            {
+                match = false;
+                break;
+            }
+        }
+
+        if (match)
+        {
+            return ctor.Invoke(args);
+        }
+    }
+
+    throw new MissingMethodException($"No matching constructor found for {type.FullName}({string.Join(", ", args.Select(a => a?.GetType().FullName ?? "null"))}).");
+}
+
+var additionalTexts = ImmutableArray<AdditionalText>.Empty;
+var analyzerOptions = new AnalyzerOptions(additionalTexts);
+
+Type apiLineType = analyzerAssembly.GetType("Microsoft.CodeAnalysis.PublicApiAnalyzers.DeclarePublicApiAnalyzer+ApiLine", throwOnError: true)
+    ?? throw new InvalidOperationException("ApiLine type not found.");
+Type removedApiLineType = analyzerAssembly.GetType("Microsoft.CodeAnalysis.PublicApiAnalyzers.DeclarePublicApiAnalyzer+RemovedApiLine", throwOnError: true)
+    ?? throw new InvalidOperationException("RemovedApiLine type not found.");
+Type apiDataType = analyzerAssembly.GetType("Microsoft.CodeAnalysis.PublicApiAnalyzers.DeclarePublicApiAnalyzer+ApiData", throwOnError: true)
+    ?? throw new InvalidOperationException("ApiData type not found.");
+Type apiNameType = analyzerAssembly.GetType("Microsoft.CodeAnalysis.PublicApiAnalyzers.DeclarePublicApiAnalyzer+ApiName", throwOnError: true)
+    ?? throw new InvalidOperationException("ApiName type not found.");
+Type implType = analyzerAssembly.GetType("Microsoft.CodeAnalysis.PublicApiAnalyzers.DeclarePublicApiAnalyzer+Impl", throwOnError: true)
+    ?? throw new InvalidOperationException("Impl type not found.");
+
+object emptyApiLines = GetImmutableArrayEmpty(apiLineType);
+object emptyRemovedApiLines = GetImmutableArrayEmpty(removedApiLineType);
+
+object emptyApiData = CreateInstanceAllowNonPublic(apiDataType, emptyApiLines, emptyRemovedApiLines, 0);
+
+// Constructor: Impl(Compilation, ApiData shipped, ApiData unshipped, bool isPublic, AnalyzerOptions)
+object impl = CreateInstanceAllowNonPublic(implType, compilation, emptyApiData, emptyApiData, true, analyzerOptions);
+
+MethodInfo isTrackedApiMethod = implType.GetMethod("IsTrackedAPI", BindingFlags.NonPublic | BindingFlags.Instance)
+    ?? throw new InvalidOperationException("IsTrackedAPI method not found.");
+MethodInfo getApiNameMethod = implType.GetMethod("GetApiName", BindingFlags.NonPublic | BindingFlags.Instance)
+    ?? throw new InvalidOperationException("GetApiName method not found.");
+PropertyInfo nameWithNullabilityProp = apiNameType.GetProperty("NameWithNullability", BindingFlags.Public | BindingFlags.Instance)
+    ?? throw new InvalidOperationException("ApiName.NameWithNullability not found.");
+
+var lines = new HashSet<string>(StringComparer.Ordinal);
+
+foreach (var symbol in EnumerateSymbols(compilation.Assembly))
+{
+    if (symbol is IMethodSymbol { MethodKind: MethodKind.Constructor, ContainingType.TypeKind: TypeKind.Enum })
+    {
+        continue;
+    }
+
+    // Public API analyzers only track the public/protected surface.
+    // This also prevents private compiler-generated symbols (e.g. enum constructors) from being declared.
+    if (symbol.DeclaredAccessibility is not (Accessibility.Public or Accessibility.Protected or Accessibility.ProtectedOrInternal or Accessibility.ProtectedAndInternal))
+    {
+        continue;
+    }
+
+    bool isTracked = (bool)isTrackedApiMethod.Invoke(impl, new object?[] { symbol, CancellationToken.None })!;
+    if (!isTracked)
+    {
+        continue;
+    }
+
+    object apiName = getApiNameMethod.Invoke(impl, new object?[] { symbol })!;
+    string? text = (string?)nameWithNullabilityProp.GetValue(apiName);
+    if (!string.IsNullOrWhiteSpace(text))
+    {
+        lines.Add(text.Trim());
+    }
+}
+
+var orderedLines = lines.OrderBy(l => l, StringComparer.Ordinal).ToArray();
+
+string shippedContents = "#nullable enable\n" + string.Join("\n", orderedLines) + (orderedLines.Length == 0 ? "" : "\n");
 string unshippedContents = "#nullable enable\n";
 
 Directory.CreateDirectory(projectDir);
-File.WriteAllText(shippedPath, shippedContents);
-File.WriteAllText(unshippedPath, unshippedContents);
+File.WriteAllText(shippedPath, shippedContents, Encoding.UTF8);
+File.WriteAllText(unshippedPath, unshippedContents, Encoding.UTF8);
 
-Console.WriteLine($"Wrote {lines.Length} public API lines to:\n- {shippedPath}\n- {unshippedPath}");
+Console.WriteLine($"Wrote {orderedLines.Length} public API lines to:\n- {shippedPath}\n- {unshippedPath}");
 return 0;

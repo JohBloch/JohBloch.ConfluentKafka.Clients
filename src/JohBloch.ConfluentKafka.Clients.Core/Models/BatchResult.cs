@@ -45,7 +45,10 @@ public class BatchResult
         _results.Add(new KafkaResult(false, errorMessage: error));
     }
 
-    internal void AddResult(KafkaResult result)
+    /// <summary>
+    /// Adds a pre-built result and updates the batch counters.
+    /// </summary>
+    public void AddResult(KafkaResult result)
     {
         if (result is null) throw new ArgumentNullException(nameof(result));
         if (result.Success) SuccessCount++;

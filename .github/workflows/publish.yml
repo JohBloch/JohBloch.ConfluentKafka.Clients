@@ -78,7 +78,26 @@ jobs:
         path: TestResults/
       
     - name: Pack
-      run: dotnet pack ./src/JohBloch.ConfluentKafka.Clients/JohBloch.ConfluentKafka.Clients.csproj --configuration Release --no-build --output ./artifacts
+      shell: bash
+      run: |
+        set -euo pipefail
+        rm -rf ./artifacts
+        mkdir -p ./artifacts
+
+        projects=(
+          "./src/JohBloch.ConfluentKafka.Clients.Core/JohBloch.ConfluentKafka.Clients.Core.csproj"
+          "./src/JohBloch.ConfluentKafka.Clients.Consumer/JohBloch.ConfluentKafka.Clients.Consumer.csproj"
+          "./src/JohBloch.ConfluentKafka.Clients.Producer/JohBloch.ConfluentKafka.Clients.Producer.csproj"
+          "./src/JohBloch.ConfluentKafka.Clients/JohBloch.ConfluentKafka.Clients.csproj"
+        )
+
+        for p in "${projects[@]}"; do
+          echo "Packing ${p}..."
+          dotnet pack "${p}" --configuration Release --no-build --output ./artifacts /p:ContinuousIntegrationBuild=true
+        done
+
+        echo "Artifacts:"
+        ls -la ./artifacts
       
     - name: Push to NuGet
       run: dotnet nuget push ./artifacts/*.nupkg --api-key ${{secrets.NUGET_API_KEY}} --source https://api.nuget.org/v3/index.json --skip-duplicate

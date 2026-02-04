@@ -70,8 +70,6 @@ try
 
     // 5. Consume Message
     Console.WriteLine(" Starting consumer...");
-    
-    consumer.Subscribe(new[] { "example-topic" });
 
     using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
     

@@ -1,27 +1,25 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    
+
     <!-- NuGet Package Metadata -->
-    <PackageId>JohBloch.ConfluentKafka.Clients</PackageId>
-    <!-- Version is calculated from Git tags via MinVer (e.g. v1.2.3) -->
+    <PackageId>JohBloch.ConfluentKafka.Clients.Core</PackageId>
     <MinVerTagPrefix>v</MinVerTagPrefix>
     <Authors>JohBloch</Authors>
     <Company>JohBloch</Company>
-    <Description>A high-performance Kafka client library for .NET with support for Avro, JSON, and Protobuf schema serialization, built-in dead letter queue (DLQ) handling, and OAuth authentication.</Description>
-    <PackageTags>kafka;confluent;avro;protobuf;json;schema-registry;dlq;dead-letter-queue;oauth;messaging;streaming</PackageTags>
+    <Description>Core building blocks for JohBloch.ConfluentKafka.Clients (options, models, security, config validation, and shared helpers).</Description>
+    <PackageTags>kafka;confluent;schema-registry;oauth</PackageTags>
     <PackageProjectUrl>https://github.com/JohBloch/JohBloch.ConfluentKafka.Clients</PackageProjectUrl>
     <RepositoryUrl>https://github.com/JohBloch/JohBloch.ConfluentKafka.Clients</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <Copyright>Copyright © 2026 JohBloch</Copyright>
-    <PackageReleaseNotes>Initial release with Avro, JSON, and Protobuf support, DLQ functionality, and OAuth authentication.</PackageReleaseNotes>
-    
+
     <!-- Source Link & Symbols -->
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
@@ -29,31 +27,38 @@
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
 
     <!-- API stability (Public API analyzers) -->
-    <!--
-      PublicApiAnalyzers ships rule configuration as globalconfig files keyed by
-      a "rules version" (e.g. 4.3). Without selecting one, the package tries to
-      map from $(AnalysisLevelSuffix) (e.g. 8) which does not exist in this package,
-      leaving most rules effectively disabled.
-    -->
     <MicrosoftCodeAnalysisPublicApiAnalyzersRulesVersion>4.3</MicrosoftCodeAnalysisPublicApiAnalyzersRulesVersion>
     <MicrosoftCodeAnalysisPublicApiAnalyzersApiDesignRulesVersion>4.3</MicrosoftCodeAnalysisPublicApiAnalyzersApiDesignRulesVersion>
     <WarningsAsErrors>$(WarningsAsErrors);RS0016;RS0017;RS0018;RS0026</WarningsAsErrors>
   </PropertyGroup>
-  
+
   <ItemGroup>
     <None Include="..\..\README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Confluent.Kafka" Version="2.13.0" />
+    <PackageReference Include="Confluent.SchemaRegistry" Version="2.13.0" />
+    <PackageReference Include="JohBloch.ConfluentKafka.SchemaRegistryExtClient" Version="1.1.0" />
     <PackageReference Include="MinVer" Version="7.0.0" PrivateAssets="All" />
     <PackageReference Include="Microsoft.SourceLink.GitHub" Version="10.0.102" PrivateAssets="All" />
     <PackageReference Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" Version="3.3.4" PrivateAssets="All" />
   </ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\JohBloch.ConfluentKafka.Clients.Core\JohBloch.ConfluentKafka.Clients.Core.csproj" />
-    <ProjectReference Include="..\JohBloch.ConfluentKafka.Clients.Consumer\JohBloch.ConfluentKafka.Clients.Consumer.csproj" />
-    <ProjectReference Include="..\JohBloch.ConfluentKafka.Clients.Producer\JohBloch.ConfluentKafka.Clients.Producer.csproj" />
+  <ItemGroup Condition="'$(TargetFramework)' == 'net8.0'">
+    <PackageReference Include="Microsoft.Extensions.Http" Version="9.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.2" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.2" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="9.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Options" Version="10.0.2" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
+    <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.1" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.1" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.1" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="10.0.1" />
+    <PackageReference Include="Microsoft.Extensions.Options" Version="10.0.1" />
   </ItemGroup>
 
 </Project>

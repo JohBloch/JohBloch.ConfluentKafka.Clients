@@ -35,7 +35,7 @@ namespace JohBloch.ConfluentKafka.Clients.Services.Serialization
             {
                 Models.SchemaType.Avro => new AvroSerializer<T>(_schemaRegistry, _loggerFactory.CreateLogger<AvroSerializer<T>>()),
                 Models.SchemaType.Protobuf => CreateProtobufSerializer<T>(),
-                Models.SchemaType.Json => new Json.JsonSerializer<T>(_schemaRegistry, _loggerFactory.CreateLogger<Json.JsonSerializer<T>>()),
+                Models.SchemaType.Json => new JsonSerializer<T>(_schemaRegistry, _loggerFactory.CreateLogger<JsonSerializer<T>>()),
                 _ => throw new NotSupportedException($"Schema type {schemaType} is not supported")
             };
         }

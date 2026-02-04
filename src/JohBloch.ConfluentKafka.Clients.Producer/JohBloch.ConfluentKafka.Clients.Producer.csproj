@@ -1,0 +1,51 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+
+    <!-- NuGet Package Metadata -->
+    <PackageId>JohBloch.ConfluentKafka.Clients.Producer</PackageId>
+    <MinVerTagPrefix>v</MinVerTagPrefix>
+    <Authors>JohBloch</Authors>
+    <Company>JohBloch</Company>
+    <Description>Kafka producer client package for JohBloch.ConfluentKafka.Clients.</Description>
+    <PackageTags>kafka;confluent;producer;schema-registry;oauth</PackageTags>
+    <PackageProjectUrl>https://github.com/JohBloch/JohBloch.ConfluentKafka.Clients</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/JohBloch/JohBloch.ConfluentKafka.Clients</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <Copyright>Copyright © 2026 JohBloch</Copyright>
+
+    <!-- Source Link & Symbols -->
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+
+    <!-- API stability (Public API analyzers) -->
+    <MicrosoftCodeAnalysisPublicApiAnalyzersRulesVersion>4.3</MicrosoftCodeAnalysisPublicApiAnalyzersRulesVersion>
+    <MicrosoftCodeAnalysisPublicApiAnalyzersApiDesignRulesVersion>4.3</MicrosoftCodeAnalysisPublicApiAnalyzersApiDesignRulesVersion>
+    <WarningsAsErrors>$(WarningsAsErrors);RS0016;RS0017;RS0018;RS0026</WarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\JohBloch.ConfluentKafka.Clients.Core\JohBloch.ConfluentKafka.Clients.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Chr.Avro.Confluent" Version="10.12.0" />
+    <PackageReference Include="protobuf-net" Version="3.2.56" />
+    <PackageReference Include="MinVer" Version="7.0.0" PrivateAssets="All" />
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="10.0.102" PrivateAssets="All" />
+    <PackageReference Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" Version="3.3.4" PrivateAssets="All" />
+  </ItemGroup>
+
+</Project>
