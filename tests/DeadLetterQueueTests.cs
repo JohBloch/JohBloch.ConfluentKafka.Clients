@@ -36,7 +36,10 @@ public class DeadLetterQueueTests
     private JohBloch.ConfluentKafka.SchemaRegistryExtClient.Interfaces.ISchemaRegistryExtClient CreateSchemaRegistry()
     {
         var cfg = new SchemaRegistryConfig { Url = "http://localhost:8081" };
-        return Track(new JohBloch.ConfluentKafka.SchemaRegistryExtClient.Services.SchemaRegistryExtClient(cfg, tokenManager: null, cache: null));
+        return Track(new JohBloch.ConfluentKafka.SchemaRegistryExtClient.Services.SchemaRegistryExtClient(
+            cfg,
+            tokenRefreshFunc: () => Task.FromResult(("fake-token", DateTime.UtcNow.AddMinutes(5))),
+            cache: null));
     }
 
     private KafkaProducerClient CreateProducerClient(KafkaProducerOptions? opts = null)
