@@ -3,7 +3,6 @@ using JohBloch.ConfluentKafka.Clients.Interfaces;
 using JohBloch.ConfluentKafka.Clients.Models;
 using JohBloch.ConfluentKafka.Clients.Security;
 using JohBloch.ConfluentKafka.SchemaRegistryExtClient.Interfaces;
-using JohBloch.ConfluentKafka.SchemaRegistryExtClient.Models;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;

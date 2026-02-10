@@ -65,6 +65,42 @@ dotnet add package JohBloch.ConfluentKafka.Clients.Producer
 
 ## Quick Start
 
+### Repo example app (Console)
+
+This repo includes a runnable console example at [examples/JohBloch.ConfluentKafka.Clients.Example](examples/JohBloch.ConfluentKafka.Clients.Example).
+
+- Use [examples/JohBloch.ConfluentKafka.Clients.Example/local.settings.sample.json](examples/JohBloch.ConfluentKafka.Clients.Example/local.settings.sample.json) as the committed template.
+- For local development, copy it to `local.settings.json` and put secrets there (this file is ignored by git).
+- PowerShell: `Copy-Item .\examples\JohBloch.ConfluentKafka.Clients.Example\local.settings.sample.json .\examples\JohBloch.ConfluentKafka.Clients.Example\local.settings.json`
+
+Multi-topic + multi-producer is configured via `Consumer__Topics` and `Producer__Producers__*`:
+
+```json
+{
+    "IsEncrypted": false,
+    "Values": {
+        "Kafka__BootstrapServers": "localhost:9092",
+
+        "SchemaRegistry__Url": "http://localhost:8081",
+
+        "Consumer__GroupId": "example-consumer-group",
+        "Consumer__Topics": "topic-a,topic-b",
+        "Consumer__AutoOffsetReset": "earliest",
+
+        "Producer__Config__acks": "all",
+        "Producer__Config__enable.idempotence": "true",
+
+        "Producer__Producers__orders__Topic": "topic-a",
+        "Producer__Producers__orders__AutoDlqOnDeliveryFailure": "true",
+        "Producer__Producers__orders__DeadLetterQueueTopicPattern": "dlq-{topic}",
+
+        "Producer__Producers__audit__Topic": "topic-b",
+        "Producer__Producers__audit__AutoDlqOnDeliveryFailure": "true",
+        "Producer__Producers__audit__DeadLetterQueueTopicPattern": "dlq-{topic}"
+    }
+}
+```
+
 ### Azure Functions (Isolated) - Configuration + DI (Recommended)
 
 This example shows how to keep *all Kafka setup isolated in your consuming app* (not in the NuGet package code), and wire everything up from `Program.cs`.

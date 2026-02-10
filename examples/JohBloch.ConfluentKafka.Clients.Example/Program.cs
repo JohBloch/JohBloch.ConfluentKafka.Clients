@@ -1,13 +1,15 @@
-using System.Text.Json;
+using Confluent.Kafka;
 using JohBloch.ConfluentKafka.Clients;
-using JohBloch.ConfluentKafka.Clients.Configuration;
 using JohBloch.ConfluentKafka.Clients.Interfaces;
 using JohBloch.ConfluentKafka.Clients.Models;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 // 1. Setup DI and Configuration
-var services = new ServiceCollection();
+ServiceCollection services = new ServiceCollection();
+
+IConfiguration configuration = LocalSettingsConfiguration.Build();
 
 services.AddLogging(builder => 
 {
@@ -17,76 +19,80 @@ services.AddLogging(builder =>
 
 services.AddKafkaClients(options =>
 {
-    options.BootstrapServers = "localhost:9092";
-    options.SchemaRegistryUrl = "http://localhost:8081";
-    
-    // Sample Producer Config
-    options.Producers.Add("default", new KafkaProducerOptions 
-    { 
-        Topic = "example-topic" 
-    });
-    
-    options.GlobalProducerConfig = new Dictionary<string, string>
-    {
-        { "acks", "all" },
-        { "enable.idempotence", "true" }
-    };
-    
-    // Sample Consumer Config
-    options.Consumer.GroupId = "example-consumer-group";
-    options.Consumer.Topic = "example-topic";
-    options.Consumer.AutoOffsetReset = "earliest";
+    options
+        .ApplySchemaRegistrySection(configuration)
+        .ApplyKafkaSection(configuration)
+        .ApplyConsumerSection(configuration)
+        .ApplyProducerSection(configuration);
 });
 
-var serviceProvider = services.BuildServiceProvider();
+ServiceProvider serviceProvider = services.BuildServiceProvider();
 
 // 2. Get Clients
-var producer = serviceProvider.GetRequiredService<IKafkaProducerClient>();
-var consumer = serviceProvider.GetRequiredService<IKafkaConsumerClient>();
+IKafkaProducerClient producerClient = serviceProvider.GetRequiredService<IKafkaProducerClient>();
+IKafkaConsumerClient consumerClient = serviceProvider.GetRequiredService<IKafkaConsumerClient>();
 
 Console.WriteLine("Kafka Client Example Started");
 Console.WriteLine("----------------------------");
 
+IReadOnlyList<string> producerKeys = KafkaClientOptionsConfigurationExtensions.GetProducerKeys(configuration);
+IReadOnlyList<string> consumerTopics = KafkaClientOptionsConfigurationExtensions.GetConsumerTopics(configuration);
+
+if (consumerTopics.Count > 0)
+{
+    consumerClient.Subscribe(consumerTopics);
+    Console.WriteLine($" Subscribed to topics: {string.Join(", ", consumerTopics)}");
+}
+
 try
 {
-    // 3. Define a message
-    var message = new TestMessage 
-    { 
-        Id = Guid.NewGuid().ToString(), 
-        Content = "Hello Kafka!", 
-        Timestamp = DateTime.UtcNow 
-    };
-    
-    // 4. Produce Message
-    Console.WriteLine($" Producing message: {message.Id}");
-    var result = await producer.SendMessageWithSchemaAsync(
-        message: message,
-        key: message.Id,
-        producerKey: "default",
-        schemaType: SchemaType.Json
-    );
-    
-    Console.WriteLine($" Message produced to: {result.Topic}"); 
+    // 3. Produce one message per configured producer key
+    List<string> producedMessageIds = new List<string>(producerKeys.Count);
+    foreach (string key in producerKeys)
+    {
+        TestMessage message = new TestMessage
+        {
+            Id = Guid.NewGuid().ToString(),
+            Content = $"Hello Kafka from producer '{key}'",
+            Timestamp = DateTime.UtcNow
+        };
+
+        producedMessageIds.Add(message.Id);
+
+        Console.WriteLine($" Producing message: {message.Id} via '{key}'");
+        KafkaResult result = await producerClient.SendMessageWithSchemaAsync(
+            message: message,
+            key: message.Id,
+            producerKey: key,
+            schemaType: SchemaType.Json
+        );
+
+        Console.WriteLine($" Message produced to: {result.Topic}");
+    }
 
     // 5. Consume Message
     Console.WriteLine(" Starting consumer...");
 
-    using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+    using CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
     
     try 
     {
         while (!cts.Token.IsCancellationRequested)
         {
-            var consumedMsg = await consumer.ConsumeAsync<TestMessage>(cts.Token);
+            ConsumeResult<string, TestMessage>? consumedMsg = await consumerClient.ConsumeAsync<TestMessage>(cts.Token);
             
             if (consumedMsg != null)
             {
                 Console.WriteLine($" Consumed message: {consumedMsg.Message.Value.Content} (ID: {consumedMsg.Message.Value.Id})");
-                consumer.Commit(consumedMsg);
+                consumerClient.Commit(consumedMsg);
                 
-                if (consumedMsg.Message.Value.Id == message.Id)
+                if (producedMessageIds.Contains(consumedMsg.Message.Value.Id, StringComparer.Ordinal))
                 {
-                    break;
+                    producedMessageIds.Remove(consumedMsg.Message.Value.Id);
+                    if (producedMessageIds.Count == 0)
+                    {
+                        break;
+                    }
                 }
             }
             else

@@ -21,6 +21,9 @@ global using Confluent.SchemaRegistry;
 global using Microsoft.Extensions.Logging;
 global using Microsoft.Extensions.Options;
 
+// Schema Registry Ext Client namespaces
+global using JohBloch.ConfluentKafka.SchemaRegistryExtClient.Models;
+
 // Internal project namespaces
 global using JohBloch.ConfluentKafka.Clients.Interfaces;
 global using JohBloch.ConfluentKafka.Clients.Models;
