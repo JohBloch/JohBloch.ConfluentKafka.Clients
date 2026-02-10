@@ -17,6 +17,8 @@ services.AddLogging(builder =>
     builder.SetMinimumLevel(LogLevel.Information);
 });
 
+services.AddSchemaRegistryCache(configuration);
+
 services.AddKafkaClients(options =>
 {
     options

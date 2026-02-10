@@ -12,6 +12,11 @@
     "SchemaRegistry__LogicalCluster": "",
     "SchemaRegistry__IdentityPoolId": "",
 
+    "SchemaRegistry__Cache__Provider": "",
+    "SchemaRegistry__Cache__Redis__ConnectionString": "localhost:6379",
+    "SchemaRegistry__Cache__Redis__KeyPrefix": "schema-registry-cache:",
+    "SchemaRegistry__Cache__Redis__DefaultTtlSeconds": "3600",
+
     "Kafka__BootstrapServers": "localhost:9092",
 
     "Consumer__GroupId": "example-consumer-group",

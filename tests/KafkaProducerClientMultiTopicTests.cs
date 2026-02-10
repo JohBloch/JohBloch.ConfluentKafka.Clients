@@ -111,7 +111,8 @@ namespace JohBloch.ConfluentKafka.Clients.Tests
         {
             return Track(new JohBloch.ConfluentKafka.SchemaRegistryExtClient.Services.SchemaRegistryExtClient(
                 new SchemaRegistryConfig { Url = "http://localhost:8081" },
-                tokenRefreshFunc: null));
+                tokenManager: null,
+                cache: null));
         }
 
         /// <summary>

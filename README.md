@@ -75,6 +75,21 @@ This repo includes a runnable console example at [examples/JohBloch.ConfluentKaf
 
 Multi-topic + multi-producer is configured via `Consumer__Topics` and `Producer__Producers__*`:
 
+Optional Redis-backed schema cache (example app):
+
+- Default behavior is in-memory schema caching (no extra config needed)
+- To override to Redis, register a Redis-backed `ISchemaCache` in your app (the repo example app does this when configured)
+
+- Set `SchemaRegistry__Cache__Provider` to `Redis`
+- Set `SchemaRegistry__Cache__Redis__ConnectionString` (e.g. `localhost:6379`)
+- Optional: `SchemaRegistry__Cache__Redis__KeyPrefix` and `SchemaRegistry__Cache__Redis__DefaultTtlSeconds`
+
+Start Redis locally:
+
+```bash
+docker run --rm -p 6379:6379 redis:7-alpine
+```
+
 ```json
 {
     "IsEncrypted": false,
@@ -82,6 +97,11 @@ Multi-topic + multi-producer is configured via `Consumer__Topics` and `Producer_
         "Kafka__BootstrapServers": "localhost:9092",
 
         "SchemaRegistry__Url": "http://localhost:8081",
+
+        "SchemaRegistry__Cache__Provider": "Redis",
+        "SchemaRegistry__Cache__Redis__ConnectionString": "localhost:6379",
+        "SchemaRegistry__Cache__Redis__KeyPrefix": "schema-registry-cache:",
+        "SchemaRegistry__Cache__Redis__DefaultTtlSeconds": "3600",
 
         "Consumer__GroupId": "example-consumer-group",
         "Consumer__Topics": "topic-a,topic-b",
