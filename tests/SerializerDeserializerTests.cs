@@ -25,7 +25,10 @@ public class SerializerDeserializerTests : DisposableTestBase
     private JohBloch.ConfluentKafka.SchemaRegistryExtClient.Interfaces.ISchemaRegistryExtClient CreateFakeSchemaRegistry()
     {
         var config = new SchemaRegistryConfig { Url = "http://localhost:8081" };
-        var ext = Track(new JohBloch.ConfluentKafka.SchemaRegistryExtClient.Services.SchemaRegistryExtClient(config, tokenManager: null, cache: null));
+        var ext = Track(new JohBloch.ConfluentKafka.SchemaRegistryExtClient.Services.SchemaRegistryExtClient(
+            config,
+            tokenRefreshFunc: () => Task.FromResult(("fake-token", DateTime.UtcNow.AddMinutes(5))),
+            cache: null));
         return ext;
     }
 

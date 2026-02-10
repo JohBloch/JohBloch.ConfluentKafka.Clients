@@ -111,7 +111,7 @@ namespace JohBloch.ConfluentKafka.Clients.Tests
         {
             return Track(new JohBloch.ConfluentKafka.SchemaRegistryExtClient.Services.SchemaRegistryExtClient(
                 new SchemaRegistryConfig { Url = "http://localhost:8081" },
-                tokenManager: null,
+                tokenRefreshFunc: () => Task.FromResult(("fake-token", DateTime.UtcNow.AddMinutes(5))),
                 cache: null));
         }
 

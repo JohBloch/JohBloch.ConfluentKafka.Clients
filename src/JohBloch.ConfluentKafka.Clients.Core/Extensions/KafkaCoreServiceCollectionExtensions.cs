@@ -124,7 +124,7 @@ public static class KafkaCoreServiceCollectionExtensions
                 IdentityPoolId = srOpts.IdentityPoolId
             };
 
-            if (tokenRefreshFunc == null)
+            if (tokenRefreshFunc is null)
             {
                 return new JohBloch.ConfluentKafka.SchemaRegistryExtClient.Services.SchemaRegistryExtClient(
                     config,
@@ -133,9 +133,12 @@ public static class KafkaCoreServiceCollectionExtensions
                     options: options);
             }
 
+            Func<Task<(string token, DateTime expiresAt)>> nonNullTokenRefreshFunc = tokenRefreshFunc
+                ?? throw new InvalidOperationException("Token refresh function was expected to be non-null.");
+
             return new JohBloch.ConfluentKafka.SchemaRegistryExtClient.Services.SchemaRegistryExtClient(
                 config,
-                tokenRefreshFunc,
+                nonNullTokenRefreshFunc,
                 cache: cache,
                 options: options);
         });
