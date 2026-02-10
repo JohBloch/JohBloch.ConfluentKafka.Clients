@@ -10,6 +10,26 @@
 
 A modern, feature-rich .NET client library for Apache Kafka with Schema Registry support, Dead Letter Queue functionality, and multiple serialization formats.
 
+## Table of Contents
+
+- [Features](#features)
+- [Installation](#installation)
+- [Build & CI](#build--ci)
+- [Quick Start](#quick-start)
+- [Configuration](#configuration)
+- [Documentation](#documentation)
+- [Requirements](#requirements)
+- [Local Development (Docker)](#local-development-docker)
+- [Dependencies](#dependencies)
+- [Building from Source](#building-from-source)
+- [Running Tests](#running-tests)
+- [Project Structure](#project-structure)
+- [Contributing](#contributing)
+- [License](#license)
+- [Support](#support)
+- [Acknowledgments](#acknowledgments)
+- [Roadmap](#roadmap)
+
 ## Features
 
 ✨ **Multiple Schema Types**
@@ -73,22 +93,34 @@ This repo includes a runnable console example at [examples/JohBloch.ConfluentKaf
 - For local development, copy it to `local.settings.json` and put secrets there (this file is ignored by git).
 - PowerShell: `Copy-Item .\examples\JohBloch.ConfluentKafka.Clients.Example\local.settings.sample.json .\examples\JohBloch.ConfluentKafka.Clients.Example\local.settings.json`
 
-Multi-topic + multi-producer is configured via `Consumer__Topics` and `Producer__Producers__*`:
+Notes about configuration in the console example:
 
-Optional Redis-backed schema cache (example app):
+- The file uses an Azure Functions-style `Values` object.
+- Keys use `__` as a separator for nested options.
+- The console example binds `Kafka`, `SchemaRegistry`, `Consumer`, and `Producer` from separate root sections (see the JSON below).
 
-- Default behavior is in-memory schema caching (no extra config needed)
-- To override to Redis, register a Redis-backed `ISchemaCache` in your app (the repo example app does this when configured)
+If you're wiring this library into your own app and binding `KafkaClientOptions` directly from configuration, see **Minimal app configuration (recommended)** below.
 
-- Set `SchemaRegistry__Cache__Provider` to `Redis`
-- Set `SchemaRegistry__Cache__Redis__ConnectionString` (e.g. `localhost:6379`)
-- Optional: `SchemaRegistry__Cache__Redis__KeyPrefix` and `SchemaRegistry__Cache__Redis__DefaultTtlSeconds`
+Multi-topic + multi-producer is configured via:
+
+- `Consumer__Topics`
+- `Producer__Producers__*`
+
+#### Schema cache (default in-memory, optional Redis)
+
+- Default behavior is in-memory schema caching (no extra config needed).
+- To override to Redis, configure the example app with:
+    - `SchemaRegistry__Cache__Provider`: `Redis`
+    - `SchemaRegistry__Cache__Redis__ConnectionString`: e.g. `localhost:6379`
+    - Optional: `SchemaRegistry__Cache__Redis__KeyPrefix` and `SchemaRegistry__Cache__Redis__DefaultTtlSeconds`
 
 Start Redis locally:
 
 ```bash
 docker run --rm -p 6379:6379 redis:7-alpine
 ```
+
+Example `local.settings.json` (for the repo console example app):
 
 ```json
 {
@@ -121,11 +153,77 @@ docker run --rm -p 6379:6379 redis:7-alpine
 }
 ```
 
+### Minimal app configuration (recommended)
+
+For most real applications, prefer binding `KafkaClientOptions` from a single `Kafka` root section:
+
+- `Kafka:*` binds to `KafkaClientOptions`
+- Optional: `Kafka:SchemaRegistry:*` binds to `SchemaRegistryOptions` when you want Schema Registry OAuth credentials that differ from Kafka OAuth.
+
+Minimal example (JSON-form keys shown; environment variables use `__`):
+
+```json
+{
+    "Kafka": {
+        "BootstrapServers": "localhost:9092",
+        "GroupId": "my-consumer-group",
+        "SchemaRegistryUrl": "http://localhost:8081",
+        "Consumer": {
+            "Topic": "orders",
+            "AutoOffsetReset": "Earliest"
+        },
+        "Producers": {
+            "default": {
+                "Topic": "orders"
+            }
+        }
+    }
+}
+```
+
 ### Azure Functions (Isolated) - Configuration + DI (Recommended)
 
 This example shows how to keep *all Kafka setup isolated in your consuming app* (not in the NuGet package code), and wire everything up from `Program.cs`.
 
-#### `local.settings.json` (example)
+#### `local.settings.json` (examples)
+
+There are two common ways to configure Schema Registry:
+
+- **Option A (simplest):** bind everything from `Kafka` using `KafkaClientOptions` and set `Kafka__SchemaRegistryUrl`.
+- **Option B (most explicit):** bind Schema Registry settings separately using `SchemaRegistryOptions` under `Kafka__SchemaRegistry__*`.
+
+Option A is a great default if Kafka and Schema Registry share the same OAuth settings.
+
+##### Option A: Shared OAuth + `Kafka__SchemaRegistryUrl`
+
+```json
+{
+    "IsEncrypted": false,
+    "Values": {
+        "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+        "FUNCTIONS_WORKER_RUNTIME": "dotnet-isolated",
+
+        "Kafka__BootstrapServers": "YOUR_BOOTSTRAP_SERVERS",
+        "Kafka__GroupId": "my-function-consumer",
+
+        "Kafka__OAuthTokenEndpoint": "https://YOUR_IDP/oauth/token",
+        "Kafka__OAuthClientId": "YOUR_CLIENT_ID",
+        "Kafka__OAuthClientSecret": "YOUR_CLIENT_SECRET",
+        "Kafka__OAuthScope": "YOUR_SCOPE",
+
+        "Kafka__OAuthLogicalCluster": "lkc-...",
+        "Kafka__OAuthIdentityPoolId": "pool-...",
+
+        "Kafka__Consumer__Topic": "orders",
+        "Kafka__Consumer__EnableAutoCommit": "false",
+        "Kafka__Consumer__AutoOffsetReset": "Earliest",
+
+        "Kafka__SchemaRegistryUrl": "https://YOUR_SCHEMA_REGISTRY"
+    }
+}
+```
+
+##### Option B: Schema Registry-specific OAuth (`Kafka__SchemaRegistry__*`)
 
 ```json
 {
@@ -166,9 +264,14 @@ You may configure OAuth credentials specifically for Schema Registry or provide 
 
 Precedence (highest → lowest):
 
-1. `Kafka:SchemaRegistry:*` (explicit schema-registry settings)
+1. `Kafka:SchemaRegistry:*` (explicit schema-registry settings via `SchemaRegistryOptions`)
 2. Top-level `Kafka__OAuth*` (global OAuth settings)
 3. Missing values will cause validation errors when OAuth is enabled
+
+Schema Registry URL can be provided either as:
+
+- `Kafka:SchemaRegistry:Url` (when you bind `SchemaRegistryOptions`), or
+- `Kafka:SchemaRegistryUrl` (when you bind `KafkaClientOptions`)
 
 Exact configuration keys (JSON form shown; equivalent environment variable names use `__`):
 
@@ -236,9 +339,13 @@ builder.ConfigureFunctionsWebApplication();
 // Bind all options from configuration and register the library services.
 builder.Services.AddKafkaClients(options => builder.Configuration.GetSection("Kafka").Bind(options));
 
-// Optional: bind Schema Registry OAuth settings (Url + OAuth fields).
-// The library maps SchemaRegistryUrl by default; this lets you provide the full OAuth configuration.
-builder.Services.PostConfigure<SchemaRegistryOptions>(sr => builder.Configuration.GetSection("Kafka:SchemaRegistry").Bind(sr));
+// Option A (simplest): configure Schema Registry URL via KafkaClientOptions (Kafka__SchemaRegistryUrl).
+// No additional binding is needed.
+
+// Option B (most explicit): if you use Kafka__SchemaRegistry__* keys, bind SchemaRegistryOptions too.
+// This is useful when Schema Registry has different OAuth credentials than Kafka.
+// builder.Services.PostConfigure<SchemaRegistryOptions>(
+//     sr => builder.Configuration.GetSection("Kafka:SchemaRegistry").Bind(sr));
 
 var app = builder.Build();
 app.Run();
@@ -444,6 +551,9 @@ public class KafkaConsumerOptions
 
 - To consume this package: .NET 8.0 or .NET 10.0
 - To build this repo from source: .NET 10.0 SDK (see `global.json`)
+- Runtime dependencies:
+    - Kafka broker (required for running the example / using the client)
+    - Confluent Schema Registry (optional, only needed for schema-based serializers)
 
 ## Local Development (Docker)
 
@@ -469,8 +579,6 @@ Stop the stack:
 ```bash
 docker compose down -v
 ```
-- Apache Kafka 2.0+
-- Confluent Schema Registry (optional, for schema support)
 
 ## Dependencies
 
@@ -509,7 +617,7 @@ dotnet build
 dotnet test
 ```
 
-All tests should pass in approximately 50 seconds.
+All tests should pass in under a minute on a typical dev machine.
 
 ## Project Structure
 
