@@ -39,7 +39,7 @@
   <ItemGroup>
     <PackageReference Include="Confluent.Kafka" Version="2.13.0" />
     <PackageReference Include="Confluent.SchemaRegistry" Version="2.13.0" />
-    <PackageReference Include="JohBloch.ConfluentKafka.SchemaRegistryExtClient" Version="1.1.0" />
+    <PackageReference Include="JohBloch.ConfluentKafka.SchemaRegistryExtClient" Version="1.1.2" />
     <PackageReference Include="MinVer" Version="7.0.0" PrivateAssets="All" />
     <PackageReference Include="Microsoft.SourceLink.GitHub" Version="10.0.102" PrivateAssets="All" />
     <PackageReference Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" Version="3.3.4" PrivateAssets="All" />

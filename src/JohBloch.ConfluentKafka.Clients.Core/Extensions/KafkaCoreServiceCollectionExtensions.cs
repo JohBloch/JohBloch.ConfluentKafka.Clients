@@ -3,7 +3,7 @@ using JohBloch.ConfluentKafka.Clients.Interfaces;
 using JohBloch.ConfluentKafka.Clients.Models;
 using JohBloch.ConfluentKafka.Clients.Security;
 using JohBloch.ConfluentKafka.SchemaRegistryExtClient.Interfaces;
-using JohBloch.ConfluentKafka.SchemaRegistryExtClient.Models;
+using JohBloch.ConfluentKafka.SchemaRegistryExtClient.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
@@ -30,8 +30,8 @@ public static class KafkaCoreServiceCollectionExtensions
 
         services.AddOptions<KafkaConsumerOptions>().Configure<IOptions<KafkaClientOptions>>((consumerOpts, clientOpts) =>
         {
-            var source = clientOpts.Value.Consumer;
-            var common = clientOpts.Value;
+            KafkaConsumerOptions source = clientOpts.Value.Consumer;
+            KafkaClientOptions common = clientOpts.Value;
 
             consumerOpts.BootstrapServers = string.IsNullOrEmpty(source.BootstrapServers)
                 ? common.BootstrapServers
@@ -92,13 +92,18 @@ public static class KafkaCoreServiceCollectionExtensions
         services.AddHttpClient("KafkaOAuth");
         services.TryAddSingleton<ISecurityTokenProvider, OAuthSecurityTokenProvider>();
 
+        // Default schema cache (in-memory). Consumers can override by registering their own ISchemaCache
+        // (e.g., Redis) before calling AddKafkaCore/AddKafkaClients.
+        services.TryAddSingleton<ISchemaCache>(_ => new InMemorySchemaCache());
+
         services.TryAddSingleton<ISchemaRegistryExtClient>(sp =>
         {
-            var srOpts = sp.GetRequiredService<IOptions<SchemaRegistryOptions>>().Value;
-            var kafkaOpts = sp.GetRequiredService<IOptions<KafkaClientOptions>>().Value;
-            var security = sp.GetService<ISecurityTokenProvider>();
+            SchemaRegistryOptions srOpts = sp.GetRequiredService<IOptions<SchemaRegistryOptions>>().Value;
+            KafkaClientOptions kafkaOpts = sp.GetRequiredService<IOptions<KafkaClientOptions>>().Value;
+            ISecurityTokenProvider? security = sp.GetService<ISecurityTokenProvider>();
+            ISchemaCache cache = sp.GetRequiredService<ISchemaCache>();
 
-            var config = new SchemaRegistryConfig
+            SchemaRegistryConfig config = new SchemaRegistryConfig
             {
                 Url = string.IsNullOrWhiteSpace(srOpts.Url) ? kafkaOpts.SchemaRegistryUrl : srOpts.Url
             };
@@ -108,21 +113,30 @@ public static class KafkaCoreServiceCollectionExtensions
             {
                 tokenRefreshFunc = async () =>
                 {
-                    var token = await security.GetAccessTokenAsync().ConfigureAwait(false);
+                    AccessToken token = await security.GetAccessTokenAsync().ConfigureAwait(false);
                     return (token.AccessTokenValue, token.ExpiresOn.UtcDateTime);
                 };
             }
 
-            var options = new SchemaClientOptions
+            SchemaClientOptions options = new SchemaClientOptions
             {
                 LogicalCluster = srOpts.LogicalCluster,
                 IdentityPoolId = srOpts.IdentityPoolId
             };
 
+            if (tokenRefreshFunc == null)
+            {
+                return new JohBloch.ConfluentKafka.SchemaRegistryExtClient.Services.SchemaRegistryExtClient(
+                    config,
+                    tokenManager: null,
+                    cache: cache,
+                    options: options);
+            }
+
             return new JohBloch.ConfluentKafka.SchemaRegistryExtClient.Services.SchemaRegistryExtClient(
                 config,
                 tokenRefreshFunc,
-                cache: null,
+                cache: cache,
                 options: options);
         });
 

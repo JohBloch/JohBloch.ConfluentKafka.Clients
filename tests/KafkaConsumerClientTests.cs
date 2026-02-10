@@ -212,7 +212,7 @@ public class KafkaConsumerClientTests
     private JohBloch.ConfluentKafka.SchemaRegistryExtClient.Interfaces.ISchemaRegistryExtClient CreateSchemaRegistry()
     {
         var cfg = new Confluent.SchemaRegistry.SchemaRegistryConfig { Url = "http://localhost:8081" };
-        return Track(new JohBloch.ConfluentKafka.SchemaRegistryExtClient.Services.SchemaRegistryExtClient(cfg, tokenRefreshFunc: null));
+        return Track(new JohBloch.ConfluentKafka.SchemaRegistryExtClient.Services.SchemaRegistryExtClient(cfg, tokenManager: null, cache: null));
     }
 
     private KafkaConsumerClient CreateClient(

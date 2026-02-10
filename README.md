@@ -65,6 +65,62 @@ dotnet add package JohBloch.ConfluentKafka.Clients.Producer
 
 ## Quick Start
 
+### Repo example app (Console)
+
+This repo includes a runnable console example at [examples/JohBloch.ConfluentKafka.Clients.Example](examples/JohBloch.ConfluentKafka.Clients.Example).
+
+- Use [examples/JohBloch.ConfluentKafka.Clients.Example/local.settings.sample.json](examples/JohBloch.ConfluentKafka.Clients.Example/local.settings.sample.json) as the committed template.
+- For local development, copy it to `local.settings.json` and put secrets there (this file is ignored by git).
+- PowerShell: `Copy-Item .\examples\JohBloch.ConfluentKafka.Clients.Example\local.settings.sample.json .\examples\JohBloch.ConfluentKafka.Clients.Example\local.settings.json`
+
+Multi-topic + multi-producer is configured via `Consumer__Topics` and `Producer__Producers__*`:
+
+Optional Redis-backed schema cache (example app):
+
+- Default behavior is in-memory schema caching (no extra config needed)
+- To override to Redis, register a Redis-backed `ISchemaCache` in your app (the repo example app does this when configured)
+
+- Set `SchemaRegistry__Cache__Provider` to `Redis`
+- Set `SchemaRegistry__Cache__Redis__ConnectionString` (e.g. `localhost:6379`)
+- Optional: `SchemaRegistry__Cache__Redis__KeyPrefix` and `SchemaRegistry__Cache__Redis__DefaultTtlSeconds`
+
+Start Redis locally:
+
+```bash
+docker run --rm -p 6379:6379 redis:7-alpine
+```
+
+```json
+{
+    "IsEncrypted": false,
+    "Values": {
+        "Kafka__BootstrapServers": "localhost:9092",
+
+        "SchemaRegistry__Url": "http://localhost:8081",
+
+        "SchemaRegistry__Cache__Provider": "Redis",
+        "SchemaRegistry__Cache__Redis__ConnectionString": "localhost:6379",
+        "SchemaRegistry__Cache__Redis__KeyPrefix": "schema-registry-cache:",
+        "SchemaRegistry__Cache__Redis__DefaultTtlSeconds": "3600",
+
+        "Consumer__GroupId": "example-consumer-group",
+        "Consumer__Topics": "topic-a,topic-b",
+        "Consumer__AutoOffsetReset": "earliest",
+
+        "Producer__Config__acks": "all",
+        "Producer__Config__enable.idempotence": "true",
+
+        "Producer__Producers__orders__Topic": "topic-a",
+        "Producer__Producers__orders__AutoDlqOnDeliveryFailure": "true",
+        "Producer__Producers__orders__DeadLetterQueueTopicPattern": "dlq-{topic}",
+
+        "Producer__Producers__audit__Topic": "topic-b",
+        "Producer__Producers__audit__AutoDlqOnDeliveryFailure": "true",
+        "Producer__Producers__audit__DeadLetterQueueTopicPattern": "dlq-{topic}"
+    }
+}
+```
+
 ### Azure Functions (Isolated) - Configuration + DI (Recommended)
 
 This example shows how to keep *all Kafka setup isolated in your consuming app* (not in the NuGet package code), and wire everything up from `Program.cs`.

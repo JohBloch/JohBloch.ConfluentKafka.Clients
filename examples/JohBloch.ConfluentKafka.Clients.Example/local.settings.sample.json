@@ -1,0 +1,42 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "DOTNET_ENVIRONMENT": "Development",
+
+    "SchemaRegistry__Url": "http://localhost:8081",
+    "SchemaRegistry__ClientId": "",
+    "SchemaRegistry__ClientSecret": "",
+    "SchemaRegistry__Scope": "",
+    "SchemaRegistry__Authority": "",
+    "SchemaRegistry__TokenEndpointUrl": "",
+    "SchemaRegistry__LogicalCluster": "",
+    "SchemaRegistry__IdentityPoolId": "",
+
+    "SchemaRegistry__Cache__Provider": "",
+    "SchemaRegistry__Cache__Redis__ConnectionString": "localhost:6379",
+    "SchemaRegistry__Cache__Redis__KeyPrefix": "schema-registry-cache:",
+    "SchemaRegistry__Cache__Redis__DefaultTtlSeconds": "3600",
+
+    "Kafka__BootstrapServers": "localhost:9092",
+
+    "Consumer__GroupId": "example-consumer-group",
+    "Consumer__Topics": "topic-a,topic-b",
+    "Consumer__AutoOffsetReset": "earliest",
+    "Consumer__EnableAutoCommit": "true",
+    "Consumer__DefaultSchemaType": "Json",
+    "Consumer__AutoDetectSchemaType": "true",
+
+    "Producer__Config__acks": "all",
+    "Producer__Config__enable.idempotence": "true",
+
+    "Producer__Producers__orders__Topic": "topic-a",
+    "Producer__Producers__orders__AutoDlqOnDeliveryFailure": "true",
+    "Producer__Producers__orders__DeadLetterQueueTopicPattern": "dlq-{topic}",
+    "Producer__Producers__orders__IncludeStackTraceInDlq": "false",
+
+    "Producer__Producers__audit__Topic": "topic-b",
+    "Producer__Producers__audit__AutoDlqOnDeliveryFailure": "true",
+    "Producer__Producers__audit__DeadLetterQueueTopicPattern": "dlq-{topic}",
+    "Producer__Producers__audit__IncludeStackTraceInDlq": "false"
+  }
+}
