@@ -188,6 +188,39 @@ The library uses Confluent.Kafka's OAuth bearer token refresh callbacks for both
 - If OAuth is partially configured (some OAuth fields are present) but required settings are missing, the default provider throws an `InvalidOperationException` to fail fast.
 - You can replace `ISecurityTokenProvider` with your own implementation if you need non-standard flows, additional custom extensions beyond `logicalCluster`/`identityPoolId`, or different caching.
 
+### Custom token provider (e.g. MSAL)
+
+If you want to acquire tokens via MSAL (or any other mechanism), you can implement `ISecurityTokenProvider` in your application and register it in DI. The library registers its default provider using `TryAddSingleton`, so your custom provider will automatically win.
+
+Important: register your custom provider **before** calling `AddKafkaClients` / `AddKafkaProducerClient` / `AddKafkaConsumerClient`.
+
+```csharp
+using JohBloch.ConfluentKafka.Clients.Configuration;
+using JohBloch.ConfluentKafka.Clients.Security;
+using Microsoft.Extensions.DependencyInjection;
+
+var services = new ServiceCollection();
+
+// Your custom provider (MSAL, managed identity, etc.)
+services.AddSingleton<ISecurityTokenProvider, MyMsalSecurityTokenProvider>();
+
+services.AddKafkaClients(options =>
+{
+    options.BootstrapServers = "your-kafka-broker:9093";
+    options.SchemaRegistryUrl = "https://your-schema-registry:8081";
+    options.GroupId = "my-group";
+
+    // If you're not using the built-in OAuthSecurityTokenProvider, you do not need to
+    // configure OAuthTokenEndpoint/OAuthClientId/OAuthClientSecret for token acquisition.
+    //
+    // However, Kafka still needs SASL/OAUTHBEARER configuration. Provide it via:
+    // - options.ConsumerConfig / options.GlobalProducerConfig, OR
+    // - ISecurityTokenProvider.GetKafkaSaslConfig() in your implementation.
+});
+```
+
+Schema Registry token refresh is set up when a security provider is available. With a custom `ISecurityTokenProvider`, Schema Registry refresh does not require `SchemaRegistryOptions.TokenEndpointUrl` to be set.
+
 ## Testing OAuth Configuration
 
 ```csharp

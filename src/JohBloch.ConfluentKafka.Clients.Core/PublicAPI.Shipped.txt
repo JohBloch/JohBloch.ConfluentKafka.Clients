@@ -29,7 +29,6 @@ JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.Producers.get -
 JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.Producers.set -> void
 JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.SchemaRegistryUrl.get -> string!
 JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.SchemaRegistryUrl.set -> void
-JohBloch.ConfluentKafka.Clients.Core.KafkaCoreServiceCollectionExtensions
 JohBloch.ConfluentKafka.Clients.Interfaces.IKafkaConsumerClient
 JohBloch.ConfluentKafka.Clients.Interfaces.IKafkaConsumerClient.Assignment.get -> System.Collections.Generic.List<Confluent.Kafka.TopicPartition!>!
 JohBloch.ConfluentKafka.Clients.Interfaces.IKafkaConsumerClient.Commit() -> void
@@ -231,7 +230,6 @@ JohBloch.ConfluentKafka.Clients.Services.Serialization.SchemaRegistryWireFormat
 const JohBloch.ConfluentKafka.Clients.Services.Serialization.SchemaRegistryWireFormat.MagicByte = 0 -> byte
 const JohBloch.ConfluentKafka.Clients.Services.Serialization.SchemaRegistryWireFormat.MinimumMessageLength = 5 -> int
 const JohBloch.ConfluentKafka.Clients.Services.Serialization.SchemaRegistryWireFormat.PayloadOffset = 5 -> int
-static JohBloch.ConfluentKafka.Clients.Core.KafkaCoreServiceCollectionExtensions.AddKafkaCore(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, System.Action<JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions!>! configureOptions) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
 static JohBloch.ConfluentKafka.Clients.Services.KafkaConfigValidator.ValidateConsumer(string! consumerName, string? groupId) -> string?
 static JohBloch.ConfluentKafka.Clients.Services.KafkaConfigValidator.ValidateGlobal(string? bootstrapServers) -> string?
 static JohBloch.ConfluentKafka.Clients.Services.Serialization.SchemaRegistryWireFormat.ExtractPayload(byte[]! data) -> byte[]!

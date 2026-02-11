@@ -1,5 +1,5 @@
 ﻿#nullable enable
-JohBloch.ConfluentKafka.Clients.Consumer.KafkaConsumerServiceCollectionExtensions
+JohBloch.ConfluentKafka.Clients.Consumer.ServiceCollectionExtensions
 JohBloch.ConfluentKafka.Clients.Services.KafkaConsumerClient
 JohBloch.ConfluentKafka.Clients.Services.KafkaConsumerClient.Assignment.get -> System.Collections.Generic.List<Confluent.Kafka.TopicPartition!>!
 JohBloch.ConfluentKafka.Clients.Services.KafkaConsumerClient.Commit() -> void
@@ -28,4 +28,4 @@ JohBloch.ConfluentKafka.Clients.Services.Serialization.Json.JsonDeserializer<T>.
 JohBloch.ConfluentKafka.Clients.Services.Serialization.Protobuf.ProtobufDeserializer<T>
 JohBloch.ConfluentKafka.Clients.Services.Serialization.Protobuf.ProtobufDeserializer<T>.DeserializeAsync(byte[]! data, Confluent.Kafka.SerializationContext context) -> System.Threading.Tasks.Task<T>!
 JohBloch.ConfluentKafka.Clients.Services.Serialization.Protobuf.ProtobufDeserializer<T>.ProtobufDeserializer(JohBloch.ConfluentKafka.SchemaRegistryExtClient.Interfaces.ISchemaRegistryExtClient! schemaRegistry, Microsoft.Extensions.Logging.ILogger! logger) -> void
-static JohBloch.ConfluentKafka.Clients.Consumer.KafkaConsumerServiceCollectionExtensions.AddKafkaConsumerClient(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, System.Action<JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions!>! configureOptions) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
+static JohBloch.ConfluentKafka.Clients.Consumer.ServiceCollectionExtensions.AddKafkaConsumerClient(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, System.Action<JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions!>! configureOptions) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!

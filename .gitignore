@@ -49,6 +49,7 @@ project.lock.json
 project.fragment.lock.json
 artifacts/
 artifacts-ci-test/
+artifacts-local-pack/
 
 # Visual Studio profiler
 *.psess
