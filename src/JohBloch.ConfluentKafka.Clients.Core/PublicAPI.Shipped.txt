@@ -137,14 +137,6 @@ JohBloch.ConfluentKafka.Clients.Models.KafkaConsumerOptions.Topic.get -> string!
 JohBloch.ConfluentKafka.Clients.Models.KafkaConsumerOptions.Topic.set -> void
 JohBloch.ConfluentKafka.Clients.Models.KafkaConsumerOptions.TopicSchemaTypes.get -> System.Collections.Generic.Dictionary<string!, JohBloch.ConfluentKafka.Clients.Models.SchemaType>!
 JohBloch.ConfluentKafka.Clients.Models.KafkaConsumerOptions.TopicSchemaTypes.set -> void
-JohBloch.ConfluentKafka.Clients.Models.KafkaOptions
-JohBloch.ConfluentKafka.Clients.Models.KafkaOptions.KafkaConsumerOptions.get -> System.Collections.Generic.Dictionary<string!, JohBloch.ConfluentKafka.Clients.Models.KafkaConsumerOptions!>!
-JohBloch.ConfluentKafka.Clients.Models.KafkaOptions.KafkaConsumerOptions.set -> void
-JohBloch.ConfluentKafka.Clients.Models.KafkaOptions.KafkaOptions() -> void
-JohBloch.ConfluentKafka.Clients.Models.KafkaOptions.KafkaProducerOptions.get -> System.Collections.Generic.Dictionary<string!, JohBloch.ConfluentKafka.Clients.Models.KafkaProducerOptions!>!
-JohBloch.ConfluentKafka.Clients.Models.KafkaOptions.KafkaProducerOptions.set -> void
-JohBloch.ConfluentKafka.Clients.Models.KafkaOptions.SchemaRegistryOptions.get -> JohBloch.ConfluentKafka.Clients.Models.SchemaRegistryOptions!
-JohBloch.ConfluentKafka.Clients.Models.KafkaOptions.SchemaRegistryOptions.set -> void
 JohBloch.ConfluentKafka.Clients.Models.KafkaProducerOptions
 JohBloch.ConfluentKafka.Clients.Models.KafkaProducerOptions.ApplicationId.get -> string!
 JohBloch.ConfluentKafka.Clients.Models.KafkaProducerOptions.ApplicationId.set -> void
