@@ -1,0 +1,43 @@
+{
+  "SchemaRegistry": {
+    "Url": "http://localhost:8081",
+    "ClientId": "",
+    "ClientSecret": "",
+    "Scope": "",
+    "Authority": "",
+    "TokenEndpointUrl": "",
+    "LogicalCluster": "",
+    "IdentityPoolId": ""
+  },
+  "Kafka": {
+    "BootstrapServers": "localhost:9092"
+  },
+  "Consumer": {
+    "GroupId": "example-consumer-group",
+    "Topics": "topic-a,topic-b",
+    "AutoOffsetReset": "earliest",
+    "EnableAutoCommit": "true",
+    "DefaultSchemaType": "Json",
+    "AutoDetectSchemaType": "true"
+  },
+  "Producer": {
+    "Config": {
+      "acks": "all",
+      "enable.idempotence": "true"
+    },
+    "Producers": {
+      "orders": {
+        "Topic": "topic-a",
+        "AutoDlqOnDeliveryFailure": "true",
+        "DeadLetterQueueTopicPattern": "dlq-{topic}",
+        "IncludeStackTraceInDlq": "false"
+      },
+      "audit": {
+        "Topic": "topic-b",
+        "AutoDlqOnDeliveryFailure": "true",
+        "DeadLetterQueueTopicPattern": "dlq-{topic}",
+        "IncludeStackTraceInDlq": "false"
+      }
+    }
+  }
+}

@@ -12,26 +12,25 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
-namespace JohBloch.ConfluentKafka.Clients;
+namespace JohBloch.ConfluentKafka.Clients.Producer;
 
 /// <summary>
-/// Extension methods for setting up Kafka clients in an IServiceCollection.
+/// Extension methods for setting up Kafka producer client services.
 /// </summary>
 public static class ServiceCollectionExtensions
 {
     /// <summary>
-    /// Adds Kafka Producer and Consumer clients to the service collection.
+    /// Adds the Kafka producer client to the service collection.
     /// </summary>
     /// <param name="services">The IServiceCollection to add services to.</param>
     /// <param name="configureOptions">An action to configure the KafkaClientOptions.</param>
     /// <returns>The IServiceCollection so that additional calls can be chained.</returns>
-    public static IServiceCollection AddKafkaClients(
-        this IServiceCollection services, 
+    public static IServiceCollection AddKafkaProducerClient(
+        this IServiceCollection services,
         Action<KafkaClientOptions> configureOptions)
     {
         AddKafkaCoreServices(services, configureOptions);
 
-        // Register Producer Client
         services.TryAddSingleton<IKafkaProducerClient>(sp =>
         {
             var options = sp.GetRequiredService<IOptions<KafkaClientOptions>>().Value;
@@ -40,7 +39,6 @@ public static class ServiceCollectionExtensions
             var loggerFactory = sp.GetRequiredService<ILoggerFactory>();
             var logger = sp.GetRequiredService<ILogger<KafkaProducerClient>>();
 
-            // Ensure BootstrapServers is inherited if missing
             foreach (var kvp in options.Producers)
             {
                 if (string.IsNullOrEmpty(kvp.Value.BootstrapServers))
@@ -56,30 +54,7 @@ public static class ServiceCollectionExtensions
                 loggerFactory,
                 logger,
                 options.GlobalProducerConfig,
-                options.PerProducerConfigs.ToDictionary(k => k.Key, v => (IDictionary<string, string>)v.Value)
-            );
-        });
-
-        // Register Consumer Client
-        services.TryAddSingleton<IKafkaConsumerClient>(sp =>
-        {
-            var consumerOpts = sp.GetRequiredService<IOptions<KafkaConsumerOptions>>();
-            var srOpts = sp.GetRequiredService<IOptions<SchemaRegistryOptions>>();
-            var security = sp.GetRequiredService<ISecurityTokenProvider>();
-            var schemaRegistry = sp.GetRequiredService<ISchemaRegistryExtClient>();
-            var loggerFactory = sp.GetRequiredService<ILoggerFactory>();
-            var logger = sp.GetRequiredService<ILogger<KafkaConsumerClient>>();
-            var clientOptions = sp.GetRequiredService<IOptions<KafkaClientOptions>>().Value;
-
-            return new KafkaConsumerClient(
-                consumerOpts,
-                srOpts,
-                security,
-                schemaRegistry,
-                loggerFactory,
-                logger,
-                globalConfig: clientOptions.ConsumerConfig,
-                consumerOverrides: null);
+                options.PerProducerConfigs.ToDictionary(k => k.Key, v => (IDictionary<string, string>)v.Value));
         });
 
         return services;

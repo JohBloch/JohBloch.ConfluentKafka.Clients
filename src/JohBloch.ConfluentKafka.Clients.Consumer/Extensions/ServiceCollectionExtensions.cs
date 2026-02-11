@@ -1,29 +1,63 @@
+using Confluent.SchemaRegistry;
 using JohBloch.ConfluentKafka.Clients.Configuration;
 using JohBloch.ConfluentKafka.Clients.Interfaces;
 using JohBloch.ConfluentKafka.Clients.Models;
 using JohBloch.ConfluentKafka.Clients.Security;
+using JohBloch.ConfluentKafka.Clients.Services;
 using JohBloch.ConfluentKafka.SchemaRegistryExtClient.Interfaces;
+using JohBloch.ConfluentKafka.SchemaRegistryExtClient.Models;
 using JohBloch.ConfluentKafka.SchemaRegistryExtClient.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
-namespace JohBloch.ConfluentKafka.Clients.Core;
+namespace JohBloch.ConfluentKafka.Clients.Consumer;
 
 /// <summary>
-/// Extension methods for setting up the shared Kafka infrastructure.
+/// Extension methods for setting up Kafka consumer client services.
 /// </summary>
-public static class KafkaCoreServiceCollectionExtensions
+public static class ServiceCollectionExtensions
 {
     /// <summary>
-    /// Adds shared Kafka infrastructure services to the service collection.
-    /// This includes options mapping, OAuth token provider, HTTP client, and schema registry client.
+    /// Adds the Kafka consumer client to the service collection.
     /// </summary>
     /// <param name="services">The IServiceCollection to add services to.</param>
     /// <param name="configureOptions">An action to configure the KafkaClientOptions.</param>
     /// <returns>The IServiceCollection so that additional calls can be chained.</returns>
-    public static IServiceCollection AddKafkaCore(
+    public static IServiceCollection AddKafkaConsumerClient(
         this IServiceCollection services,
+        Action<KafkaClientOptions> configureOptions)
+    {
+        AddKafkaCoreServices(services, configureOptions);
+
+        services.TryAddSingleton<IKafkaConsumerClient>(sp =>
+        {
+            var consumerOpts = sp.GetRequiredService<IOptions<KafkaConsumerOptions>>();
+            var srOpts = sp.GetRequiredService<IOptions<SchemaRegistryOptions>>();
+            var security = sp.GetRequiredService<ISecurityTokenProvider>();
+            var schemaRegistry = sp.GetRequiredService<ISchemaRegistryExtClient>();
+            var loggerFactory = sp.GetRequiredService<ILoggerFactory>();
+            var logger = sp.GetRequiredService<ILogger<KafkaConsumerClient>>();
+            var clientOptions = sp.GetRequiredService<IOptions<KafkaClientOptions>>().Value;
+
+            return new KafkaConsumerClient(
+                consumerOpts,
+                srOpts,
+                security,
+                schemaRegistry,
+                loggerFactory,
+                logger,
+                globalConfig: clientOptions.ConsumerConfig,
+                consumerOverrides: null,
+                consumerOverride: null);
+        });
+
+        return services;
+    }
+
+    private static IServiceCollection AddKafkaCoreServices(
+        IServiceCollection services,
         Action<KafkaClientOptions> configureOptions)
     {
         services.Configure(configureOptions);
@@ -92,8 +126,6 @@ public static class KafkaCoreServiceCollectionExtensions
         services.AddHttpClient("KafkaOAuth");
         services.TryAddSingleton<ISecurityTokenProvider, OAuthSecurityTokenProvider>();
 
-        // Default schema cache (in-memory). Consumers can override by registering their own ISchemaCache
-        // (e.g., Redis) before calling AddKafkaCore/AddKafkaClients.
         services.TryAddSingleton<ISchemaCache>(_ => new InMemorySchemaCache());
 
         services.TryAddSingleton<ISchemaRegistryExtClient>(sp =>
@@ -109,7 +141,10 @@ public static class KafkaCoreServiceCollectionExtensions
             };
 
             Func<Task<(string token, DateTime expiresAt)>>? tokenRefreshFunc = null;
-            if (!string.IsNullOrWhiteSpace(srOpts.TokenEndpointUrl) && security != null)
+            bool hasCustomSecurityProvider = security is not null
+                                            && security is not OAuthSecurityTokenProvider;
+
+            if (security != null && (hasCustomSecurityProvider || !string.IsNullOrWhiteSpace(srOpts.TokenEndpointUrl)))
             {
                 tokenRefreshFunc = async () =>
                 {
@@ -126,7 +161,7 @@ public static class KafkaCoreServiceCollectionExtensions
 
             if (tokenRefreshFunc is null)
             {
-                return new JohBloch.ConfluentKafka.SchemaRegistryExtClient.Services.SchemaRegistryExtClient(
+                return new global::JohBloch.ConfluentKafka.SchemaRegistryExtClient.Services.SchemaRegistryExtClient(
                     config,
                     tokenManager: null,
                     cache: cache,
@@ -136,7 +171,7 @@ public static class KafkaCoreServiceCollectionExtensions
             Func<Task<(string token, DateTime expiresAt)>> nonNullTokenRefreshFunc = tokenRefreshFunc
                 ?? throw new InvalidOperationException("Token refresh function was expected to be non-null.");
 
-            return new JohBloch.ConfluentKafka.SchemaRegistryExtClient.Services.SchemaRegistryExtClient(
+            return new global::JohBloch.ConfluentKafka.SchemaRegistryExtClient.Services.SchemaRegistryExtClient(
                 config,
                 nonNullTokenRefreshFunc,
                 cache: cache,

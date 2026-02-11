@@ -1,0 +1,34 @@
+{
+  "SchemaRegistry": {
+    "Url": "http://localhost:8081",
+    "LogicalCluster": "",
+    "IdentityPoolId": "",
+    "Cache": {
+      "Provider": "Redis",
+      "Redis": {
+        "ConnectionString": "localhost:6379",
+        "KeyPrefix": "schema-registry-cache:",
+        "DefaultTtlSeconds": "3600"
+      }
+    }
+  },
+  "Msal": {
+    "TenantId": "<your-tenant-id-guid>",
+    "ClientId": "<your-public-client-app-id-guid>",
+    "Scopes": "api://<your-app-id>/.default",
+    "Authority": "",
+    "TokenEndpointUrl": "",
+    "CacheFilePath": ""
+  },
+  "Kafka": {
+    "BootstrapServers": "localhost:9092"
+  },
+  "Consumer": {
+    "GroupId": "example-consumer-group",
+    "Topics": "topic-a,topic-b",
+    "AutoOffsetReset": "earliest",
+    "EnableAutoCommit": "true",
+    "DefaultSchemaType": "Json",
+    "AutoDetectSchemaType": "true"
+  }
+}

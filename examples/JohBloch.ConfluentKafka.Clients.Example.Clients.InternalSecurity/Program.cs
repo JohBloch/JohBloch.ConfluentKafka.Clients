@@ -6,31 +6,24 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
-// 1. Setup DI and Configuration
-ServiceCollection services = new ServiceCollection();
+const int ConsumeTimeoutSeconds = 15;
 
-IConfiguration configuration = LocalSettingsConfiguration.Build();
+// 1. Setup DI and configuration
+var services = new ServiceCollection();
+IConfiguration configuration = BuildConfiguration();
 
-services.AddLogging(builder => 
-{
-    builder.AddConsole();
-    builder.SetMinimumLevel(LogLevel.Information);
-});
-
-services.AddSchemaRegistryCache(configuration);
+services.AddLogging(ConfigureLogging);
 
 services.AddKafkaClients(options =>
-{
     options
         .ApplySchemaRegistrySection(configuration)
         .ApplyKafkaSection(configuration)
         .ApplyConsumerSection(configuration)
-        .ApplyProducerSection(configuration);
-});
+        .ApplyProducerSection(configuration));
 
-ServiceProvider serviceProvider = services.BuildServiceProvider();
+using ServiceProvider serviceProvider = services.BuildServiceProvider();
 
-// 2. Get Clients
+// 2. Get clients
 IKafkaProducerClient producerClient = serviceProvider.GetRequiredService<IKafkaProducerClient>();
 IKafkaConsumerClient consumerClient = serviceProvider.GetRequiredService<IKafkaConsumerClient>();
 
@@ -49,7 +42,7 @@ if (consumerTopics.Count > 0)
 try
 {
     // 3. Produce one message per configured producer key
-    List<string> producedMessageIds = new List<string>(producerKeys.Count);
+    var producedMessageIds = new List<string>(producerKeys.Count);
     foreach (string key in producerKeys)
     {
         TestMessage message = new TestMessage
@@ -75,7 +68,7 @@ try
     // 5. Consume Message
     Console.WriteLine(" Starting consumer...");
 
-    using CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+    using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(ConsumeTimeoutSeconds));
     
     try 
     {
@@ -112,6 +105,21 @@ try
 catch (Exception ex)
 {
     Console.WriteLine($"Error: {ex.Message}");
+}
+
+static IConfiguration BuildConfiguration()
+{
+    return new ConfigurationBuilder()
+        .AddJsonFile(Path.Combine(AppContext.BaseDirectory, "local.settings.sample.json"), optional: true, reloadOnChange: false)
+        .AddJsonFile(Path.Combine(AppContext.BaseDirectory, "local.settings.json"), optional: true, reloadOnChange: false)
+        .AddEnvironmentVariables()
+        .Build();
+}
+
+static void ConfigureLogging(ILoggingBuilder builder)
+{
+    builder.AddConsole();
+    builder.SetMinimumLevel(LogLevel.Information);
 }
 
 public class TestMessage

@@ -87,11 +87,16 @@ dotnet add package JohBloch.ConfluentKafka.Clients.Producer
 
 ### Repo example app (Console)
 
-This repo includes a runnable console example at [examples/JohBloch.ConfluentKafka.Clients.Example](examples/JohBloch.ConfluentKafka.Clients.Example).
+This repo includes runnable console examples under [examples/](examples/):
 
-- Use [examples/JohBloch.ConfluentKafka.Clients.Example/local.settings.sample.json](examples/JohBloch.ConfluentKafka.Clients.Example/local.settings.sample.json) as the committed template.
+- [examples/JohBloch.ConfluentKafka.Clients.Example.Clients.InternalSecurity](examples/JohBloch.ConfluentKafka.Clients.Example.Clients.InternalSecurity) (meta package: consumer + producer)
+- [examples/JohBloch.ConfluentKafka.Clients.Example.Producer.InternalSecurity](examples/JohBloch.ConfluentKafka.Clients.Example.Producer.InternalSecurity) (producer-only)
+- [examples/JohBloch.ConfluentKafka.Clients.Example.Consumer.InternalSecurity](examples/JohBloch.ConfluentKafka.Clients.Example.Consumer.InternalSecurity) (consumer-only)
+- [examples/JohBloch.ConfluentKafka.Clients.Example.Consumer.Msal.ExternalRefresh.RedisCache](examples/JohBloch.ConfluentKafka.Clients.Example.Consumer.Msal.ExternalRefresh.RedisCache) (consumer-only, MSAL token provider + Redis schema cache)
+
+- Each example has a committed `local.settings.sample.json` template.
 - For local development, copy it to `local.settings.json` and put secrets there (this file is ignored by git).
-- PowerShell: `Copy-Item .\examples\JohBloch.ConfluentKafka.Clients.Example\local.settings.sample.json .\examples\JohBloch.ConfluentKafka.Clients.Example\local.settings.json`
+- PowerShell (example): `Copy-Item .\examples\JohBloch.ConfluentKafka.Clients.Example.Clients.InternalSecurity\local.settings.sample.json .\examples\JohBloch.ConfluentKafka.Clients.Example.Clients.InternalSecurity\local.settings.json`
 
 Notes about configuration in the console example:
 
@@ -313,6 +318,12 @@ How the library uses these values:
 - The DI mapping prefers `Kafka:SchemaRegistry:*` values; when any of those are not set the library will fall back to the corresponding top-level `Kafka__OAuth*` value.
 - You can also explicitly `PostConfigure<SchemaRegistryOptions>` (see `Program.cs`) to override either source.
 - If OAuth appears enabled (token endpoint, client id or secret present) but required fields are missing, the provider will throw an informative validation error.
+
+Custom token provider (e.g., MSAL):
+
+- You can replace the default `ISecurityTokenProvider` by registering your own implementation in DI **before** calling `AddKafkaClients` / `AddKafkaProducerClient` / `AddKafkaConsumerClient`.
+- The library registers `OAuthSecurityTokenProvider` using `TryAddSingleton`, so your custom provider will automatically win.
+- Schema Registry token refresh for `SchemaRegistryExtClient` is wired up when a security provider is available; with a custom provider, refresh does not require `SchemaRegistryOptions.TokenEndpointUrl` to be set.
 
 Environment variables equivalent (examples):
 
@@ -571,7 +582,7 @@ docker compose up -d
 Run the example:
 
 ```bash
-dotnet run --project examples/JohBloch.ConfluentKafka.Clients.Example/JohBloch.ConfluentKafka.Clients.Example.csproj
+dotnet run --project examples/JohBloch.ConfluentKafka.Clients.Example.Clients.InternalSecurity/JohBloch.ConfluentKafka.Clients.Example.Clients.InternalSecurity.csproj
 ```
 
 Stop the stack:

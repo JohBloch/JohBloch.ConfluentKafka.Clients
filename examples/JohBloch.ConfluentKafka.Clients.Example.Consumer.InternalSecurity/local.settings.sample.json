@@ -1,0 +1,23 @@
+{
+  "SchemaRegistry": {
+    "Url": "http://localhost:8081",
+    "ClientId": "",
+    "ClientSecret": "",
+    "Scope": "",
+    "Authority": "",
+    "TokenEndpointUrl": "",
+    "LogicalCluster": "",
+    "IdentityPoolId": ""
+  },
+  "Kafka": {
+    "BootstrapServers": "localhost:9092"
+  },
+  "Consumer": {
+    "GroupId": "example-consumer-group",
+    "Topics": "topic-a,topic-b",
+    "AutoOffsetReset": "earliest",
+    "EnableAutoCommit": "true",
+    "DefaultSchemaType": "Json",
+    "AutoDetectSchemaType": "true"
+  }
+}
