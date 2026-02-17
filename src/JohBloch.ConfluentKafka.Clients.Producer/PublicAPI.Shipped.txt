@@ -1,5 +1,5 @@
 ﻿#nullable enable
-JohBloch.ConfluentKafka.Clients.Producer.ServiceCollectionExtensions
+JohBloch.ConfluentKafka.Clients.Producer.KafkaServiceCollectionExtensions
 JohBloch.ConfluentKafka.Clients.Services.KafkaProducerClient
 JohBloch.ConfluentKafka.Clients.Services.KafkaProducerClient.Dispose() -> void
 JohBloch.ConfluentKafka.Clients.Services.KafkaProducerClient.KafkaConfigHelper
@@ -30,7 +30,7 @@ JohBloch.ConfluentKafka.Clients.Services.Serialization.SerializerFactory
 JohBloch.ConfluentKafka.Clients.Services.Serialization.SerializerFactory.Create<T>(JohBloch.ConfluentKafka.Clients.Models.SchemaType schemaType) -> JohBloch.ConfluentKafka.Clients.Interfaces.IMessageSerializer<T>!
 JohBloch.ConfluentKafka.Clients.Services.Serialization.SerializerFactory.GetSchemaTypeForTopicAsync(string! topic, bool isKey = false) -> System.Threading.Tasks.Task<JohBloch.ConfluentKafka.Clients.Models.SchemaType>!
 JohBloch.ConfluentKafka.Clients.Services.Serialization.SerializerFactory.SerializerFactory(JohBloch.ConfluentKafka.SchemaRegistryExtClient.Interfaces.ISchemaRegistryExtClient! schemaRegistry, Microsoft.Extensions.Logging.ILoggerFactory! loggerFactory) -> void
-static JohBloch.ConfluentKafka.Clients.Producer.ServiceCollectionExtensions.AddKafkaProducerClient(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, System.Action<JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions!>! configureOptions) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
+static JohBloch.ConfluentKafka.Clients.Producer.KafkaServiceCollectionExtensions.AddKafkaProducerClient(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, System.Action<JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions!>! configureOptions) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
 static JohBloch.ConfluentKafka.Clients.Services.KafkaProducerClient.KafkaConfigHelper.ApplyBatchOptimizedSettings(Confluent.Kafka.ProducerConfig! config, JohBloch.ConfluentKafka.Clients.Models.KafkaProducerOptions! producerOpts) -> void
 static JohBloch.ConfluentKafka.Clients.Services.KafkaProducerClient.KafkaConfigHelper.ApplyConfigDictionary(Confluent.Kafka.ClientConfig! config, System.Collections.Generic.IDictionary<string!, string!>? configDictionary) -> void
 static JohBloch.ConfluentKafka.Clients.Services.KafkaProducerClient.KafkaConfigHelper.CreateBaseConfig(JohBloch.ConfluentKafka.Clients.Models.KafkaProducerOptions! producerOpts, System.Collections.Generic.IDictionary<string!, string!>? saslCfg) -> Confluent.Kafka.ProducerConfig!

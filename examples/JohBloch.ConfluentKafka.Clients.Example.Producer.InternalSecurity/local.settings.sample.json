@@ -10,7 +10,16 @@
     "IdentityPoolId": ""
   },
   "Kafka": {
-    "BootstrapServers": "localhost:9092"
+    "BootstrapServers": "localhost:9092",
+    "OAuth": {
+      "ClientId": "",
+      "ClientSecret": "",
+      "Scope": "",
+      "Authority": "",
+      "TokenEndpointUrl": "",
+      "LogicalCluster": "",
+      "IdentityPoolId": ""
+    }
   },
   "Producer": {
     "Config": {

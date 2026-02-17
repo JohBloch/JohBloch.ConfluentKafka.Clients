@@ -9,8 +9,8 @@ internal static class KafkaClientOptionsConfigurationExtensions
         IConfigurationSection schemaRegistry = configuration.GetSection("SchemaRegistry");
 
         options.SchemaRegistryUrl = schemaRegistry["Url"] ?? string.Empty;
-        options.OAuthLogicalCluster = GetNonEmpty(schemaRegistry, "LogicalCluster");
-        options.OAuthIdentityPoolId = GetNonEmpty(schemaRegistry, "IdentityPoolId");
+        options.SchemaRegistryOauthLogicalCluster = GetNonEmpty(schemaRegistry, "LogicalCluster");
+        options.SchemaRegistryOauthIdentityPoolId = GetNonEmpty(schemaRegistry, "IdentityPoolId");
 
         return options;
     }
@@ -19,6 +19,35 @@ internal static class KafkaClientOptionsConfigurationExtensions
     {
         IConfigurationSection kafka = configuration.GetSection("Kafka");
         options.BootstrapServers = kafka["BootstrapServers"] ?? string.Empty;
+
+        // Optional: Confluent Cloud (or other) OAuth settings for Kafka.
+        IConfigurationSection oauth = kafka.GetSection("OAuth");
+        if (oauth.Exists())
+        {
+            string? authority = GetNonEmpty(oauth, "Authority");
+            string? tokenEndpointUrl = GetNonEmpty(oauth, "TokenEndpointUrl");
+            if (tokenEndpointUrl == null && authority != null)
+            {
+                tokenEndpointUrl = authority.TrimEnd('/') + "/oauth2/v2.0/token";
+            }
+
+            options.KafkaOauthTokenEndpoint = tokenEndpointUrl;
+
+            string? clientId = GetNonEmpty(oauth, "ClientId");
+            if (clientId != null) options.KafkaOauthClientId = clientId;
+
+            string? clientSecret = GetNonEmpty(oauth, "ClientSecret");
+            if (clientSecret != null) options.KafkaOauthClientSecret = clientSecret;
+
+            string? scope = GetNonEmpty(oauth, "Scope");
+            if (scope != null) options.KafkaOauthScope = scope;
+
+            string? logicalCluster = GetNonEmpty(oauth, "LogicalCluster");
+            if (logicalCluster != null) options.KafkaOauthLogicalCluster = logicalCluster;
+
+            string? identityPoolId = GetNonEmpty(oauth, "IdentityPoolId");
+            if (identityPoolId != null) options.KafkaOauthIdentityPoolId = identityPoolId;
+        }
         return options;
     }
 

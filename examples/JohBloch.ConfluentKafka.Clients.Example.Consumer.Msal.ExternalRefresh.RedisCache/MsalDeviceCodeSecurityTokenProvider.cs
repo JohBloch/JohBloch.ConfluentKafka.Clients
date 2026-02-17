@@ -19,16 +19,16 @@ public sealed class MsalDeviceCodeSecurityTokenProvider(
     {
         // NOTE: This field initializer runs before instance fields are assigned,
         // so we must use the primary-constructor parameter here.
-        var options = msalOptions.Value;
-        var authority = GetAuthority(options);
+        MsalTokenProviderOptions options = msalOptions.Value;
+        string authority = GetAuthority(options);
 
-        var builder = PublicClientApplicationBuilder
+        PublicClientApplicationBuilder builder = PublicClientApplicationBuilder
             .Create(options.ClientId)
             .WithAuthority(authority);
 
-        var app = builder.Build();
+        IPublicClientApplication app = builder.Build();
 
-        var cacheFilePath = GetCacheFilePath(options);
+        string? cacheFilePath = GetCacheFilePath(options);
         if (!string.IsNullOrWhiteSpace(cacheFilePath))
         {
             SimpleFileTokenCache.Bind(app.UserTokenCache, cacheFilePath);
@@ -39,20 +39,20 @@ public sealed class MsalDeviceCodeSecurityTokenProvider(
 
     public async Task<AccessToken> GetAccessTokenAsync(CancellationToken cancellationToken = default)
     {
-        var scopes = ParseScopes(_msalOptions.Scopes);
+        string[] scopes = ParseScopes(_msalOptions.Scopes);
 
         if (scopes.Length == 0)
         {
             throw new InvalidOperationException("MSAL scopes are missing. Set 'Msal:Scopes' in local settings.");
         }
 
-        var app = _app.Value;
-        var accounts = await app.GetAccountsAsync().ConfigureAwait(false);
-        var account = accounts.FirstOrDefault();
+        IPublicClientApplication app = _app.Value;
+        System.Collections.Generic.IEnumerable<IAccount> accounts = await app.GetAccountsAsync().ConfigureAwait(false);
+        IAccount? account = accounts.FirstOrDefault();
 
         try
         {
-            var result = await app
+            AuthenticationResult result = await app
                 .AcquireTokenSilent(scopes, account)
                 .ExecuteAsync(cancellationToken)
                 .ConfigureAwait(false);
@@ -64,7 +64,7 @@ public sealed class MsalDeviceCodeSecurityTokenProvider(
         {
             logger.LogWarning("No cached token available. Starting device-code flow.");
 
-            var result = await app
+            AuthenticationResult result = await app
                 .AcquireTokenWithDeviceCode(scopes, callback =>
                 {
                     logger.LogWarning("{DeviceCodeMessage}", callback.Message);
@@ -85,19 +85,28 @@ public sealed class MsalDeviceCodeSecurityTokenProvider(
 
     public Dictionary<string, string>? GetExtensions()
     {
-        var extensions = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        return GetExtensions(
+            _kafkaClientOptions.KafkaOauthLogicalCluster,
+            _kafkaClientOptions.KafkaOauthIdentityPoolId);
+    }
 
-        if (!string.IsNullOrWhiteSpace(_kafkaClientOptions.OAuthLogicalCluster))
+    internal static Dictionary<string, string>? GetExtensions(string? logicalCluster, string? identityPoolId)
+    {
+        Dictionary<string, string>? extensions = null;
+
+        if (!string.IsNullOrWhiteSpace(logicalCluster))
         {
-            extensions["logicalCluster"] = _kafkaClientOptions.OAuthLogicalCluster;
+            extensions ??= new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            extensions["logicalCluster"] = logicalCluster.Trim();
         }
 
-        if (!string.IsNullOrWhiteSpace(_kafkaClientOptions.OAuthIdentityPoolId))
+        if (!string.IsNullOrWhiteSpace(identityPoolId))
         {
-            extensions["identityPoolId"] = _kafkaClientOptions.OAuthIdentityPoolId;
+            extensions ??= new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            extensions["identityPoolId"] = identityPoolId.Trim();
         }
 
-        return extensions.Count == 0 ? null : extensions;
+        return extensions;
     }
 
     public Dictionary<string, string>? GetKafkaSaslConfig()
@@ -105,7 +114,7 @@ public sealed class MsalDeviceCodeSecurityTokenProvider(
         // IMPORTANT:
         // - This is intentionally "external refresh login": MSAL manages refresh tokens and renews access tokens.
         // - librdkafka still wants OIDC metadata (token endpoint) when using 'sasl.oauthbearer.method=oidc'.
-        var tokenEndpointUrl = GetTokenEndpointUrl(_msalOptions);
+        string tokenEndpointUrl = GetTokenEndpointUrl(_msalOptions);
 
         var config = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
@@ -159,7 +168,7 @@ public sealed class MsalDeviceCodeSecurityTokenProvider(
             return options.TokenEndpointUrl;
         }
 
-        var authority = GetAuthority(options).TrimEnd('/');
+        string authority = GetAuthority(options).TrimEnd('/');
         return $"{authority}/oauth2/v2.0/token";
     }
 

@@ -18,11 +18,11 @@ public class OAuthSecurityTokenProviderExtensionsTests
         var clientSecret = CreateTestSecret();
         var options = new KafkaClientOptions
         {
-            OAuthTokenEndpoint = "https://example.com/oauth/token",
-            OAuthClientId = "client-id",
-            OAuthClientSecret = clientSecret,
-            OAuthLogicalCluster = "lkc-123",
-            OAuthIdentityPoolId = "pool-456"
+            KafkaOauthTokenEndpoint = "https://example.com/oauth/token",
+            KafkaOauthClientId = "client-id",
+            KafkaOauthClientSecret = clientSecret,
+            KafkaOauthLogicalCluster = "lkc-123",
+            KafkaOauthIdentityPoolId = "pool-456"
         };
 
         var provider = new OAuthSecurityTokenProvider(
@@ -43,9 +43,9 @@ public class OAuthSecurityTokenProviderExtensionsTests
         var clientSecret = CreateTestSecret();
         var options = new KafkaClientOptions
         {
-            OAuthTokenEndpoint = "https://example.com/oauth/token",
-            OAuthClientId = "client-id",
-            OAuthClientSecret = clientSecret
+            KafkaOauthTokenEndpoint = "https://example.com/oauth/token",
+            KafkaOauthClientId = "client-id",
+            KafkaOauthClientSecret = clientSecret
         };
 
         var provider = new OAuthSecurityTokenProvider(

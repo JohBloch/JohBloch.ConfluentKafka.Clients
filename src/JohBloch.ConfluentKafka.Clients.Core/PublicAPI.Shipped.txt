@@ -10,23 +10,35 @@ JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.GlobalProducerC
 JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.GlobalProducerConfig.set -> void
 JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.GroupId.get -> string!
 JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.GroupId.set -> void
+JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.KafkaOauthClientId.get -> string?
+JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.KafkaOauthClientId.set -> void
+JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.KafkaOauthClientSecret.get -> string?
+JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.KafkaOauthClientSecret.set -> void
+JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.KafkaOauthIdentityPoolId.get -> string?
+JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.KafkaOauthIdentityPoolId.set -> void
+JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.KafkaOauthLogicalCluster.get -> string?
+JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.KafkaOauthLogicalCluster.set -> void
+JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.KafkaOauthScope.get -> string?
+JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.KafkaOauthScope.set -> void
+JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.KafkaOauthTokenEndpoint.get -> string?
+JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.KafkaOauthTokenEndpoint.set -> void
 JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.KafkaClientOptions() -> void
-JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.OAuthClientId.get -> string?
-JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.OAuthClientId.set -> void
-JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.OAuthClientSecret.get -> string?
-JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.OAuthClientSecret.set -> void
-JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.OAuthIdentityPoolId.get -> string?
-JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.OAuthIdentityPoolId.set -> void
-JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.OAuthLogicalCluster.get -> string?
-JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.OAuthLogicalCluster.set -> void
-JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.OAuthScope.get -> string?
-JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.OAuthScope.set -> void
-JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.OAuthTokenEndpoint.get -> string?
-JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.OAuthTokenEndpoint.set -> void
 JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.PerProducerConfigs.get -> System.Collections.Generic.Dictionary<string!, System.Collections.Generic.Dictionary<string!, string!>!>!
 JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.PerProducerConfigs.set -> void
 JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.Producers.get -> System.Collections.Generic.Dictionary<string!, JohBloch.ConfluentKafka.Clients.Models.KafkaProducerOptions!>!
 JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.Producers.set -> void
+JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.SchemaRegistryOauthClientId.get -> string?
+JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.SchemaRegistryOauthClientId.set -> void
+JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.SchemaRegistryOauthClientSecret.get -> string?
+JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.SchemaRegistryOauthClientSecret.set -> void
+JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.SchemaRegistryOauthIdentityPoolId.get -> string?
+JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.SchemaRegistryOauthIdentityPoolId.set -> void
+JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.SchemaRegistryOauthLogicalCluster.get -> string?
+JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.SchemaRegistryOauthLogicalCluster.set -> void
+JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.SchemaRegistryOauthScope.get -> string?
+JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.SchemaRegistryOauthScope.set -> void
+JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.SchemaRegistryOauthTokenEndpoint.get -> string?
+JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.SchemaRegistryOauthTokenEndpoint.set -> void
 JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.SchemaRegistryUrl.get -> string!
 JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.SchemaRegistryUrl.set -> void
 JohBloch.ConfluentKafka.Clients.Interfaces.IKafkaConsumerClient

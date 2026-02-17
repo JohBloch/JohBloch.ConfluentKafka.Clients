@@ -21,7 +21,16 @@
     "CacheFilePath": ""
   },
   "Kafka": {
-    "BootstrapServers": "localhost:9092"
+    "BootstrapServers": "localhost:9092",
+    "OAuth": {
+      "ClientId": "",
+      "ClientSecret": "",
+      "Scope": "",
+      "Authority": "",
+      "TokenEndpointUrl": "",
+      "LogicalCluster": "",
+      "IdentityPoolId": ""
+    }
   },
   "Consumer": {
     "GroupId": "example-consumer-group",
