@@ -17,7 +17,7 @@ namespace JohBloch.ConfluentKafka.Clients;
 /// <summary>
 /// Extension methods for setting up Kafka clients in an IServiceCollection.
 /// </summary>
-public static class ServiceCollectionExtensions
+public static class KafkaServiceCollectionExtensions
 {
     /// <summary>
     /// Adds Kafka Producer and Consumer clients to the service collection.
@@ -26,7 +26,7 @@ public static class ServiceCollectionExtensions
     /// <param name="configureOptions">An action to configure the KafkaClientOptions.</param>
     /// <returns>The IServiceCollection so that additional calls can be chained.</returns>
     public static IServiceCollection AddKafkaClients(
-        this IServiceCollection services, 
+        this IServiceCollection services,
         Action<KafkaClientOptions> configureOptions)
     {
         AddKafkaCoreServices(services, configureOptions);
@@ -34,14 +34,14 @@ public static class ServiceCollectionExtensions
         // Register Producer Client
         services.TryAddSingleton<IKafkaProducerClient>(sp =>
         {
-            var options = sp.GetRequiredService<IOptions<KafkaClientOptions>>().Value;
-            var security = sp.GetRequiredService<ISecurityTokenProvider>();
-            var schemaRegistry = sp.GetRequiredService<ISchemaRegistryExtClient>();
-            var loggerFactory = sp.GetRequiredService<ILoggerFactory>();
-            var logger = sp.GetRequiredService<ILogger<KafkaProducerClient>>();
+            KafkaClientOptions options = sp.GetRequiredService<IOptions<KafkaClientOptions>>().Value;
+            ISecurityTokenProvider security = sp.GetRequiredService<ISecurityTokenProvider>();
+            ISchemaRegistryExtClient schemaRegistry = sp.GetRequiredService<ISchemaRegistryExtClient>();
+            ILoggerFactory loggerFactory = sp.GetRequiredService<ILoggerFactory>();
+            ILogger<KafkaProducerClient> logger = sp.GetRequiredService<ILogger<KafkaProducerClient>>();
 
             // Ensure BootstrapServers is inherited if missing
-            foreach (var kvp in options.Producers)
+            foreach (KeyValuePair<string, KafkaProducerOptions> kvp in options.Producers)
             {
                 if (string.IsNullOrEmpty(kvp.Value.BootstrapServers))
                 {
@@ -63,13 +63,13 @@ public static class ServiceCollectionExtensions
         // Register Consumer Client
         services.TryAddSingleton<IKafkaConsumerClient>(sp =>
         {
-            var consumerOpts = sp.GetRequiredService<IOptions<KafkaConsumerOptions>>();
-            var srOpts = sp.GetRequiredService<IOptions<SchemaRegistryOptions>>();
-            var security = sp.GetRequiredService<ISecurityTokenProvider>();
-            var schemaRegistry = sp.GetRequiredService<ISchemaRegistryExtClient>();
-            var loggerFactory = sp.GetRequiredService<ILoggerFactory>();
-            var logger = sp.GetRequiredService<ILogger<KafkaConsumerClient>>();
-            var clientOptions = sp.GetRequiredService<IOptions<KafkaClientOptions>>().Value;
+            IOptions<KafkaConsumerOptions> consumerOpts = sp.GetRequiredService<IOptions<KafkaConsumerOptions>>();
+            IOptions<SchemaRegistryOptions> srOpts = sp.GetRequiredService<IOptions<SchemaRegistryOptions>>();
+            ISecurityTokenProvider security = sp.GetRequiredService<ISecurityTokenProvider>();
+            ISchemaRegistryExtClient schemaRegistry = sp.GetRequiredService<ISchemaRegistryExtClient>();
+            ILoggerFactory loggerFactory = sp.GetRequiredService<ILoggerFactory>();
+            ILogger<KafkaConsumerClient> logger = sp.GetRequiredService<ILogger<KafkaConsumerClient>>();
+            KafkaClientOptions clientOptions = sp.GetRequiredService<IOptions<KafkaClientOptions>>().Value;
 
             return new KafkaConsumerClient(
                 consumerOpts,
@@ -116,39 +116,47 @@ public static class ServiceCollectionExtensions
 
         services.AddOptions<SchemaRegistryOptions>().Configure<IOptions<KafkaClientOptions>>((srOpts, clientOpts) =>
         {
+            KafkaClientOptions cfg = clientOpts.Value;
+
             if (string.IsNullOrWhiteSpace(srOpts.Url))
             {
-                srOpts.Url = clientOpts.Value.SchemaRegistryUrl;
+                srOpts.Url = cfg.SchemaRegistryUrl;
             }
 
             if (string.IsNullOrWhiteSpace(srOpts.TokenEndpointUrl))
             {
-                srOpts.TokenEndpointUrl = clientOpts.Value.OAuthTokenEndpoint ?? string.Empty;
+                srOpts.TokenEndpointUrl = cfg.SchemaRegistryOauthTokenEndpoint
+                                         ?? string.Empty;
             }
 
             if (string.IsNullOrWhiteSpace(srOpts.ClientId))
             {
-                srOpts.ClientId = clientOpts.Value.OAuthClientId ?? string.Empty;
+                srOpts.ClientId = cfg.SchemaRegistryOauthClientId
+                               ?? string.Empty;
             }
 
             if (string.IsNullOrWhiteSpace(srOpts.ClientSecret))
             {
-                srOpts.ClientSecret = clientOpts.Value.OAuthClientSecret ?? string.Empty;
+                srOpts.ClientSecret = cfg.SchemaRegistryOauthClientSecret
+                                   ?? string.Empty;
             }
 
             if (string.IsNullOrWhiteSpace(srOpts.Scope))
             {
-                srOpts.Scope = clientOpts.Value.OAuthScope ?? string.Empty;
+                srOpts.Scope = cfg.SchemaRegistryOauthScope
+                            ?? string.Empty;
             }
 
             if (string.IsNullOrWhiteSpace(srOpts.LogicalCluster))
             {
-                srOpts.LogicalCluster = clientOpts.Value.OAuthLogicalCluster ?? string.Empty;
+                srOpts.LogicalCluster = cfg.SchemaRegistryOauthLogicalCluster
+                                     ?? string.Empty;
             }
 
             if (string.IsNullOrWhiteSpace(srOpts.IdentityPoolId))
             {
-                srOpts.IdentityPoolId = clientOpts.Value.OAuthIdentityPoolId ?? string.Empty;
+                srOpts.IdentityPoolId = cfg.SchemaRegistryOauthIdentityPoolId
+                                      ?? string.Empty;
             }
         });
 
@@ -182,11 +190,16 @@ public static class ServiceCollectionExtensions
                 };
             }
 
-            SchemaClientOptions options = new SchemaClientOptions
+            SchemaClientOptions options = new SchemaClientOptions();
+            if (!string.IsNullOrWhiteSpace(srOpts.LogicalCluster))
             {
-                LogicalCluster = srOpts.LogicalCluster,
-                IdentityPoolId = srOpts.IdentityPoolId
-            };
+                options.LogicalCluster = srOpts.LogicalCluster;
+            }
+
+            if (!string.IsNullOrWhiteSpace(srOpts.IdentityPoolId))
+            {
+                options.IdentityPoolId = srOpts.IdentityPoolId;
+            }
 
             if (tokenRefreshFunc is null)
             {

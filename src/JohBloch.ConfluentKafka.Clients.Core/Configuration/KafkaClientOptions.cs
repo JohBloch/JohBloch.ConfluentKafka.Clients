@@ -28,36 +28,68 @@ public class KafkaClientOptions
     public string GroupId { get; set; } = string.Empty;
 
     /// <summary>
-    /// OAuth Token Endpoint URL (if using OAuth).
+    /// Schema Registry OAuth Token Endpoint URL (if using OAuth).
     /// </summary>
-    public string? OAuthTokenEndpoint { get; set; }
+    public string? SchemaRegistryOauthTokenEndpoint { get; set; }
 
     /// <summary>
-    /// OAuth Client ID (if using OAuth).
+    /// Kafka OAuth Token Endpoint URL (if using OAuth).
     /// </summary>
-    public string? OAuthClientId { get; set; }
+    public string? KafkaOauthTokenEndpoint { get; set; }
 
     /// <summary>
-    /// OAuth Client Secret (if using OAuth).
+    /// Schema Registry OAuth Client ID (if using OAuth).
     /// </summary>
-    public string? OAuthClientSecret { get; set; }
+    public string? SchemaRegistryOauthClientId { get; set; }
 
     /// <summary>
-    /// OAuth Scope (optional, if using OAuth).
+    /// Kafka OAuth Client ID (if using OAuth).
     /// </summary>
-    public string? OAuthScope { get; set; }
+    public string? KafkaOauthClientId { get; set; }
 
     /// <summary>
-    /// Optional OAuth bearer token extension: logical cluster id (e.g. Confluent Cloud 'lkc-...').
-    /// When provided, this will be sent as the OAuth OAUTHBEARER token extension key 'logicalCluster'.
+    /// Schema Registry OAuth Client Secret (if using OAuth).
     /// </summary>
-    public string? OAuthLogicalCluster { get; set; }
+    public string? SchemaRegistryOauthClientSecret { get; set; }
 
     /// <summary>
-    /// Optional OAuth bearer token extension: identity pool id (e.g. Confluent Cloud identity pool).
-    /// When provided, this will be sent as the OAuth OAUTHBEARER token extension key 'identityPoolId'.
+    /// Kafka OAuth Client Secret (if using OAuth).
     /// </summary>
-    public string? OAuthIdentityPoolId { get; set; }
+    public string? KafkaOauthClientSecret { get; set; }
+
+    /// <summary>
+    /// Schema Registry OAuth Scope (optional, if using OAuth).
+    /// </summary>
+    public string? SchemaRegistryOauthScope { get; set; }
+
+    /// <summary>
+    /// Kafka OAuth Scope (optional, if using OAuth).
+    /// </summary>
+    public string? KafkaOauthScope { get; set; }
+
+    /// <summary>
+    /// Optional Schema Registry OAuth bearer token extension: logical cluster id (e.g. Confluent Cloud 'lsrc-...').
+    /// When provided, this will be sent as the OAuth token extension key 'logicalCluster' for Schema Registry.
+    /// </summary>
+    public string? SchemaRegistryOauthLogicalCluster { get; set; }
+
+    /// <summary>
+    /// Optional Kafka OAuth bearer token extension: logical cluster id (e.g. Confluent Cloud 'lkc-...').
+    /// When provided, this will be sent as the OAuth token extension key 'logicalCluster' for Kafka.
+    /// </summary>
+    public string? KafkaOauthLogicalCluster { get; set; }
+
+    /// <summary>
+    /// Optional Schema Registry OAuth bearer token extension: identity pool id (e.g. Confluent Cloud identity pool).
+    /// When provided, this will be sent as the OAuth token extension key 'identityPoolId' for Schema Registry.
+    /// </summary>
+    public string? SchemaRegistryOauthIdentityPoolId { get; set; }
+
+    /// <summary>
+    /// Optional Kafka OAuth bearer token extension: identity pool id (e.g. Confluent Cloud identity pool).
+    /// When provided, this will be sent as the OAuth token extension key 'identityPoolId' for Kafka.
+    /// </summary>
+    public string? KafkaOauthIdentityPoolId { get; set; }
 
     /// <summary>
     /// Configuration for specific logged producers (Topic, BatchSize, DLQ settings).

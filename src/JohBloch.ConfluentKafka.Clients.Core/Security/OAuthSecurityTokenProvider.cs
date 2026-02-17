@@ -14,6 +14,7 @@ namespace JohBloch.ConfluentKafka.Clients.Security;
 public class OAuthSecurityTokenProvider : ISecurityTokenProvider
 {
     private readonly KafkaClientOptions _options;
+    private readonly OAuthConfig _kafkaOAuth;
     private readonly ILogger<OAuthSecurityTokenProvider> _logger;
     private readonly HttpClient _httpClient;
     private AccessToken? _cachedToken;
@@ -30,6 +31,7 @@ public class OAuthSecurityTokenProvider : ISecurityTokenProvider
         IHttpClientFactory httpClientFactory)
     {
         _options = options.Value;
+        _kafkaOAuth = OAuthConfig.FromKafkaOptions(_options);
         _logger = logger;
         _httpClient = httpClientFactory.CreateClient("KafkaOAuth");
 
@@ -58,7 +60,7 @@ public class OAuthSecurityTokenProvider : ISecurityTokenProvider
 
         try
         {
-            _logger.LogInformation("Fetching new OAuth token from {Endpoint}", _options.OAuthTokenEndpoint);
+            _logger.LogInformation("Fetching new OAuth token from {Endpoint}", _kafkaOAuth.TokenEndpoint);
             OAuthResponse response = await FetchTokenInternalAsync(cancellationToken);
             
             // Default to 1 hour if not provided
@@ -97,19 +99,26 @@ public class OAuthSecurityTokenProvider : ISecurityTokenProvider
             return null;
         }
 
-        var extensions = new Dictionary<string, string>(StringComparer.Ordinal);
+        return GetExtensions(_kafkaOAuth.LogicalCluster, _kafkaOAuth.IdentityPoolId);
+    }
 
-        if (!string.IsNullOrWhiteSpace(_options.OAuthLogicalCluster))
+    internal static Dictionary<string, string>? GetExtensions(string? logicalCluster, string? identityPoolId)
+    {
+        Dictionary<string, string>? extensions = null;
+
+        if (!string.IsNullOrWhiteSpace(logicalCluster))
         {
-            extensions["logicalCluster"] = _options.OAuthLogicalCluster.Trim();
+            extensions ??= new Dictionary<string, string>(StringComparer.Ordinal);
+            extensions["logicalCluster"] = logicalCluster.Trim();
         }
 
-        if (!string.IsNullOrWhiteSpace(_options.OAuthIdentityPoolId))
+        if (!string.IsNullOrWhiteSpace(identityPoolId))
         {
-            extensions["identityPoolId"] = _options.OAuthIdentityPoolId.Trim();
+            extensions ??= new Dictionary<string, string>(StringComparer.Ordinal);
+            extensions["identityPoolId"] = identityPoolId.Trim();
         }
 
-        return extensions.Count == 0 ? null : extensions;
+        return extensions;
     }
 
     /// <inheritdoc />
@@ -134,18 +143,18 @@ public class OAuthSecurityTokenProvider : ISecurityTokenProvider
 
             // Many brokers use the OIDC method; endpoint url also helps future-proofing.
             ["sasl.oauthbearer.method"] = "OIDC",
-            ["sasl.oauthbearer.token.endpoint.url"] = _options.OAuthTokenEndpoint!
+            ["sasl.oauthbearer.token.endpoint.url"] = _kafkaOAuth.TokenEndpoint!
         };
 
         // Add OIDC-required client id (and commonly required secret) for brokers/librdkafka validation.
         // These are still useful even when tokens are set via OAuthBearerSetToken refresh callbacks.
-        cfg["sasl.oauthbearer.client.id"] = _options.OAuthClientId!;
-        cfg["sasl.oauthbearer.client.secret"] = _options.OAuthClientSecret!;
+        cfg["sasl.oauthbearer.client.id"] = _kafkaOAuth.ClientId!;
+        cfg["sasl.oauthbearer.client.secret"] = _kafkaOAuth.ClientSecret!;
 
-        if (!string.IsNullOrWhiteSpace(_options.OAuthScope))
+        if (!string.IsNullOrWhiteSpace(_kafkaOAuth.Scope))
         {
             // librdkafka expects a space-delimited scope string.
-            cfg["sasl.oauthbearer.scope"] = _options.OAuthScope!;
+            cfg["sasl.oauthbearer.scope"] = _kafkaOAuth.Scope!;
         }
 
         return cfg;
@@ -153,10 +162,7 @@ public class OAuthSecurityTokenProvider : ISecurityTokenProvider
 
     private bool IsOAuthEnabled()
     {
-        return !string.IsNullOrWhiteSpace(_options.OAuthTokenEndpoint)
-               || !string.IsNullOrWhiteSpace(_options.OAuthClientId)
-               || !string.IsNullOrWhiteSpace(_options.OAuthClientSecret)
-               || !string.IsNullOrWhiteSpace(_options.OAuthScope);
+        return _kafkaOAuth.IsConfigured;
     }
 
     private void ValidateOAuthOptionsIfEnabled()
@@ -167,17 +173,17 @@ public class OAuthSecurityTokenProvider : ISecurityTokenProvider
         }
 
         var missing = new List<string>(capacity: 3);
-        if (string.IsNullOrWhiteSpace(_options.OAuthTokenEndpoint))
+        if (string.IsNullOrWhiteSpace(_kafkaOAuth.TokenEndpoint))
         {
-            missing.Add(nameof(KafkaClientOptions.OAuthTokenEndpoint));
+            missing.Add(nameof(KafkaClientOptions.KafkaOauthTokenEndpoint));
         }
-        if (string.IsNullOrWhiteSpace(_options.OAuthClientId))
+        if (string.IsNullOrWhiteSpace(_kafkaOAuth.ClientId))
         {
-            missing.Add(nameof(KafkaClientOptions.OAuthClientId));
+            missing.Add(nameof(KafkaClientOptions.KafkaOauthClientId));
         }
-        if (string.IsNullOrWhiteSpace(_options.OAuthClientSecret))
+        if (string.IsNullOrWhiteSpace(_kafkaOAuth.ClientSecret))
         {
-            missing.Add(nameof(KafkaClientOptions.OAuthClientSecret));
+            missing.Add(nameof(KafkaClientOptions.KafkaOauthClientSecret));
         }
 
         if (missing.Count > 0)
@@ -186,10 +192,10 @@ public class OAuthSecurityTokenProvider : ISecurityTokenProvider
                 $"OAuth2 is enabled (some OAuth settings are present), but the following required setting(s) are missing: {string.Join(", ", missing)}");
         }
 
-        if (!Uri.TryCreate(_options.OAuthTokenEndpoint, UriKind.Absolute, out _))
+        if (!Uri.TryCreate(_kafkaOAuth.TokenEndpoint, UriKind.Absolute, out _))
         {
             throw new InvalidOperationException(
-                $"Invalid OAuthTokenEndpoint '{_options.OAuthTokenEndpoint}'. Expected an absolute URL.");
+            $"Invalid KafkaOauthTokenEndpoint '{_kafkaOAuth.TokenEndpoint}'. Expected an absolute URL.");
         }
     }
 
@@ -198,17 +204,17 @@ public class OAuthSecurityTokenProvider : ISecurityTokenProvider
         var formData = new Dictionary<string, string>
         {
             ["grant_type"] = "client_credentials",
-            ["client_id"] = _options.OAuthClientId ?? string.Empty,
-            ["client_secret"] = _options.OAuthClientSecret ?? string.Empty
+            ["client_id"] = _kafkaOAuth.ClientId ?? string.Empty,
+            ["client_secret"] = _kafkaOAuth.ClientSecret ?? string.Empty
         };
 
-        if (!string.IsNullOrEmpty(_options.OAuthScope))
+        if (!string.IsNullOrEmpty(_kafkaOAuth.Scope))
         {
-            formData["scope"] = _options.OAuthScope;
+            formData["scope"] = _kafkaOAuth.Scope;
         }
 
         using var content = new FormUrlEncodedContent(formData);
-        using HttpResponseMessage response = await _httpClient.PostAsync(_options.OAuthTokenEndpoint, content, cancellationToken);
+        using HttpResponseMessage response = await _httpClient.PostAsync(_kafkaOAuth.TokenEndpoint, content, cancellationToken);
         
         if (!response.IsSuccessStatusCode)
         {
@@ -230,5 +236,31 @@ public class OAuthSecurityTokenProvider : ISecurityTokenProvider
 
         [JsonPropertyName("token_type")]
         public string TokenType { get; set; } = string.Empty;
+    }
+
+    private sealed record OAuthConfig(
+        string? TokenEndpoint,
+        string? ClientId,
+        string? ClientSecret,
+        string? Scope,
+        string? LogicalCluster,
+        string? IdentityPoolId)
+    {
+        public bool IsConfigured =>
+            !string.IsNullOrWhiteSpace(TokenEndpoint)
+            || !string.IsNullOrWhiteSpace(ClientId)
+            || !string.IsNullOrWhiteSpace(ClientSecret)
+            || !string.IsNullOrWhiteSpace(Scope);
+
+        public static OAuthConfig FromKafkaOptions(KafkaClientOptions options)
+        {
+            return new OAuthConfig(
+                TokenEndpoint: options.KafkaOauthTokenEndpoint,
+                ClientId: options.KafkaOauthClientId,
+                ClientSecret: options.KafkaOauthClientSecret,
+                Scope: options.KafkaOauthScope,
+                LogicalCluster: options.KafkaOauthLogicalCluster,
+                IdentityPoolId: options.KafkaOauthIdentityPoolId);
+        }
     }
 }

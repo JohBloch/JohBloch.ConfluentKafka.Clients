@@ -12,49 +12,44 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
-namespace JohBloch.ConfluentKafka.Clients.Producer;
+namespace JohBloch.ConfluentKafka.Clients.Consumer;
 
 /// <summary>
-/// Extension methods for setting up Kafka producer client services.
+/// Extension methods for setting up Kafka consumer client services.
 /// </summary>
-public static class ServiceCollectionExtensions
+public static class KafkaServiceCollectionExtensions
 {
     /// <summary>
-    /// Adds the Kafka producer client to the service collection.
+    /// Adds the Kafka consumer client to the service collection.
     /// </summary>
     /// <param name="services">The IServiceCollection to add services to.</param>
     /// <param name="configureOptions">An action to configure the KafkaClientOptions.</param>
     /// <returns>The IServiceCollection so that additional calls can be chained.</returns>
-    public static IServiceCollection AddKafkaProducerClient(
+    public static IServiceCollection AddKafkaConsumerClient(
         this IServiceCollection services,
         Action<KafkaClientOptions> configureOptions)
     {
         AddKafkaCoreServices(services, configureOptions);
 
-        services.TryAddSingleton<IKafkaProducerClient>(sp =>
+        services.TryAddSingleton<IKafkaConsumerClient>(sp =>
         {
-            var options = sp.GetRequiredService<IOptions<KafkaClientOptions>>().Value;
-            var security = sp.GetRequiredService<ISecurityTokenProvider>();
-            var schemaRegistry = sp.GetRequiredService<ISchemaRegistryExtClient>();
-            var loggerFactory = sp.GetRequiredService<ILoggerFactory>();
-            var logger = sp.GetRequiredService<ILogger<KafkaProducerClient>>();
+            IOptions<KafkaConsumerOptions> consumerOpts = sp.GetRequiredService<IOptions<KafkaConsumerOptions>>();
+            IOptions<SchemaRegistryOptions> srOpts = sp.GetRequiredService<IOptions<SchemaRegistryOptions>>();
+            ISecurityTokenProvider security = sp.GetRequiredService<ISecurityTokenProvider>();
+            ISchemaRegistryExtClient schemaRegistry = sp.GetRequiredService<ISchemaRegistryExtClient>();
+            ILoggerFactory loggerFactory = sp.GetRequiredService<ILoggerFactory>();
+            ILogger<KafkaConsumerClient> logger = sp.GetRequiredService<ILogger<KafkaConsumerClient>>();
+            KafkaClientOptions clientOptions = sp.GetRequiredService<IOptions<KafkaClientOptions>>().Value;
 
-            foreach (var kvp in options.Producers)
-            {
-                if (string.IsNullOrEmpty(kvp.Value.BootstrapServers))
-                {
-                    kvp.Value.BootstrapServers = options.BootstrapServers;
-                }
-            }
-
-            return new KafkaProducerClient(
-                options.Producers,
+            return new KafkaConsumerClient(
+                consumerOpts,
+                srOpts,
                 security,
                 schemaRegistry,
                 loggerFactory,
                 logger,
-                options.GlobalProducerConfig,
-                options.PerProducerConfigs.ToDictionary(k => k.Key, v => (IDictionary<string, string>)v.Value));
+                globalConfig: clientOptions.ConsumerConfig,
+                consumerOverrides: null);
         });
 
         return services;
@@ -91,39 +86,47 @@ public static class ServiceCollectionExtensions
 
         services.AddOptions<SchemaRegistryOptions>().Configure<IOptions<KafkaClientOptions>>((srOpts, clientOpts) =>
         {
+            KafkaClientOptions cfg = clientOpts.Value;
+
             if (string.IsNullOrWhiteSpace(srOpts.Url))
             {
-                srOpts.Url = clientOpts.Value.SchemaRegistryUrl;
+                srOpts.Url = cfg.SchemaRegistryUrl;
             }
 
             if (string.IsNullOrWhiteSpace(srOpts.TokenEndpointUrl))
             {
-                srOpts.TokenEndpointUrl = clientOpts.Value.OAuthTokenEndpoint ?? string.Empty;
+                srOpts.TokenEndpointUrl = cfg.SchemaRegistryOauthTokenEndpoint
+                                         ?? string.Empty;
             }
 
             if (string.IsNullOrWhiteSpace(srOpts.ClientId))
             {
-                srOpts.ClientId = clientOpts.Value.OAuthClientId ?? string.Empty;
+                srOpts.ClientId = cfg.SchemaRegistryOauthClientId
+                               ?? string.Empty;
             }
 
             if (string.IsNullOrWhiteSpace(srOpts.ClientSecret))
             {
-                srOpts.ClientSecret = clientOpts.Value.OAuthClientSecret ?? string.Empty;
+                srOpts.ClientSecret = cfg.SchemaRegistryOauthClientSecret
+                                   ?? string.Empty;
             }
 
             if (string.IsNullOrWhiteSpace(srOpts.Scope))
             {
-                srOpts.Scope = clientOpts.Value.OAuthScope ?? string.Empty;
+                srOpts.Scope = cfg.SchemaRegistryOauthScope
+                            ?? string.Empty;
             }
 
             if (string.IsNullOrWhiteSpace(srOpts.LogicalCluster))
             {
-                srOpts.LogicalCluster = clientOpts.Value.OAuthLogicalCluster ?? string.Empty;
+                srOpts.LogicalCluster = cfg.SchemaRegistryOauthLogicalCluster
+                                     ?? string.Empty;
             }
 
             if (string.IsNullOrWhiteSpace(srOpts.IdentityPoolId))
             {
-                srOpts.IdentityPoolId = clientOpts.Value.OAuthIdentityPoolId ?? string.Empty;
+                srOpts.IdentityPoolId = cfg.SchemaRegistryOauthIdentityPoolId
+                                      ?? string.Empty;
             }
         });
 
@@ -157,11 +160,16 @@ public static class ServiceCollectionExtensions
                 };
             }
 
-            SchemaClientOptions options = new SchemaClientOptions
+            SchemaClientOptions options = new SchemaClientOptions();
+            if (!string.IsNullOrWhiteSpace(srOpts.LogicalCluster))
             {
-                LogicalCluster = srOpts.LogicalCluster,
-                IdentityPoolId = srOpts.IdentityPoolId
-            };
+                options.LogicalCluster = srOpts.LogicalCluster;
+            }
+
+            if (!string.IsNullOrWhiteSpace(srOpts.IdentityPoolId))
+            {
+                options.IdentityPoolId = srOpts.IdentityPoolId;
+            }
 
             if (tokenRefreshFunc is null)
             {

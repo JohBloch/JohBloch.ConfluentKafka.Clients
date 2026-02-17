@@ -194,12 +194,12 @@ This example shows how to keep *all Kafka setup isolated in your consuming app* 
 
 There are two common ways to configure Schema Registry:
 
-- **Option A (simplest):** bind everything from `Kafka` using `KafkaClientOptions` and set `Kafka__SchemaRegistryUrl`.
+- **Option A (simplest):** bind everything from `Kafka` using `KafkaClientOptions`.
 - **Option B (most explicit):** bind Schema Registry settings separately using `SchemaRegistryOptions` under `Kafka__SchemaRegistry__*`.
 
-Option A is a great default if Kafka and Schema Registry share the same OAuth settings.
+Option A is a great default when you want a single options object (`KafkaClientOptions`). If Kafka and Schema Registry share the same OAuth settings, set both the `KafkaOauth*` and `SchemaRegistryOauth*` values to the same values.
 
-##### Option A: Shared OAuth + `Kafka__SchemaRegistryUrl`
+##### Option A: Kafka OAuth + Schema Registry OAuth + `Kafka__SchemaRegistryUrl`
 
 ```json
 {
@@ -211,13 +211,21 @@ Option A is a great default if Kafka and Schema Registry share the same OAuth se
         "Kafka__BootstrapServers": "YOUR_BOOTSTRAP_SERVERS",
         "Kafka__GroupId": "my-function-consumer",
 
-        "Kafka__OAuthTokenEndpoint": "https://YOUR_IDP/oauth/token",
-        "Kafka__OAuthClientId": "YOUR_CLIENT_ID",
-        "Kafka__OAuthClientSecret": "YOUR_CLIENT_SECRET",
-        "Kafka__OAuthScope": "YOUR_SCOPE",
+        "Kafka__KafkaOauthTokenEndpoint": "https://YOUR_IDP/oauth/token",
+        "Kafka__KafkaOauthClientId": "YOUR_CLIENT_ID",
+        "Kafka__KafkaOauthClientSecret": "YOUR_CLIENT_SECRET",
+        "Kafka__KafkaOauthScope": "YOUR_SCOPE",
 
-        "Kafka__OAuthLogicalCluster": "lkc-...",
-        "Kafka__OAuthIdentityPoolId": "pool-...",
+        "Kafka__KafkaOauthLogicalCluster": "lkc-...",
+        "Kafka__KafkaOauthIdentityPoolId": "pool-...",
+
+        "Kafka__SchemaRegistryOauthTokenEndpoint": "https://YOUR_IDP/oauth/token",
+        "Kafka__SchemaRegistryOauthClientId": "YOUR_CLIENT_ID",
+        "Kafka__SchemaRegistryOauthClientSecret": "YOUR_CLIENT_SECRET",
+        "Kafka__SchemaRegistryOauthScope": "YOUR_SCOPE",
+
+        "Kafka__SchemaRegistryOauthLogicalCluster": "lsrc-...",
+        "Kafka__SchemaRegistryOauthIdentityPoolId": "pool-...",
 
         "Kafka__Consumer__Topic": "orders",
         "Kafka__Consumer__EnableAutoCommit": "false",
@@ -240,13 +248,13 @@ Option A is a great default if Kafka and Schema Registry share the same OAuth se
         "Kafka__BootstrapServers": "YOUR_BOOTSTRAP_SERVERS",
         "Kafka__GroupId": "my-function-consumer",
 
-        "Kafka__OAuthTokenEndpoint": "https://YOUR_IDP/oauth/token",
-        "Kafka__OAuthClientId": "YOUR_CLIENT_ID",
-        "Kafka__OAuthClientSecret": "YOUR_CLIENT_SECRET",
-        "Kafka__OAuthScope": "YOUR_SCOPE",
+        "Kafka__KafkaOauthTokenEndpoint": "https://YOUR_IDP/oauth/token",
+        "Kafka__KafkaOauthClientId": "YOUR_CLIENT_ID",
+        "Kafka__KafkaOauthClientSecret": "YOUR_CLIENT_SECRET",
+        "Kafka__KafkaOauthScope": "YOUR_SCOPE",
 
-        "Kafka__OAuthLogicalCluster": "lkc-...",
-        "Kafka__OAuthIdentityPoolId": "pool-...",
+        "Kafka__KafkaOauthLogicalCluster": "lkc-...",
+        "Kafka__KafkaOauthIdentityPoolId": "pool-...",
 
         "Kafka__Consumer__Topic": "orders",
         "Kafka__Consumer__EnableAutoCommit": "false",
@@ -265,13 +273,13 @@ Option A is a great default if Kafka and Schema Registry share the same OAuth se
 
 ### Schema Registry OAuth configuration (clarified)
 
-You may configure OAuth credentials specifically for Schema Registry or provide top-level OAuth values for all Kafka-related components. Precedence and exact keys are below.
+You can configure Schema Registry OAuth either via `SchemaRegistryOptions` (bound separately) or via `KafkaClientOptions` (`SchemaRegistryOauth*`).
 
 Precedence (highest → lowest):
 
 1. `Kafka:SchemaRegistry:*` (explicit schema-registry settings via `SchemaRegistryOptions`)
-2. Top-level `Kafka__OAuth*` (global OAuth settings)
-3. Missing values will cause validation errors when OAuth is enabled
+2. `Kafka:SchemaRegistryOauth*` (defaults for `SchemaRegistryOptions` when you bind `KafkaClientOptions`)
+3. Missing values will cause validation errors when Schema Registry OAuth is enabled
 
 Schema Registry URL can be provided either as:
 
@@ -291,33 +299,33 @@ Exact configuration keys (JSON form shown; equivalent environment variable names
             "ClientId": "YOUR_SR_CLIENT_ID",
             "ClientSecret": "YOUR_SR_CLIENT_SECRET",
             "Scope": "YOUR_SR_SCOPE",
-            "LogicalCluster": "lkc-...",
+            "LogicalCluster": "lsrc-...",
             "IdentityPoolId": "YOUR_SR_IDENTITY_POOL_ID"
         }
     }
 }
 ```
 
-- Top-level OAuth fallback:
+- `KafkaClientOptions` fallback (Schema Registry OAuth via `SchemaRegistryOauth*`):
 
 ```json
 {
     "Kafka": {
-        "OAuthTokenEndpoint": "https://YOUR_IDP/oauth/token",
-        "OAuthClientId": "YOUR_CLIENT_ID",
-        "OAuthClientSecret": "YOUR_CLIENT_SECRET",
-        "OAuthScope": "YOUR_SCOPE",
-        "OAuthLogicalCluster": "lkc-...",
-        "OAuthIdentityPoolId": "pool-..."
+        "SchemaRegistryOauthTokenEndpoint": "https://YOUR_IDP/oauth/token",
+        "SchemaRegistryOauthClientId": "YOUR_SR_CLIENT_ID",
+        "SchemaRegistryOauthClientSecret": "YOUR_SR_CLIENT_SECRET",
+        "SchemaRegistryOauthScope": "YOUR_SR_SCOPE",
+        "SchemaRegistryOauthLogicalCluster": "lsrc-...",
+        "SchemaRegistryOauthIdentityPoolId": "YOUR_SR_IDENTITY_POOL_ID"
     }
 }
 ```
 
 How the library uses these values:
 
-- The DI mapping prefers `Kafka:SchemaRegistry:*` values; when any of those are not set the library will fall back to the corresponding top-level `Kafka__OAuth*` value.
+- The DI mapping prefers `Kafka:SchemaRegistry:*` values; when any of those are not set the library will fall back to the corresponding `Kafka:SchemaRegistryOauth*` value (when you bind `KafkaClientOptions`).
 - You can also explicitly `PostConfigure<SchemaRegistryOptions>` (see `Program.cs`) to override either source.
-- If OAuth appears enabled (token endpoint, client id or secret present) but required fields are missing, the provider will throw an informative validation error.
+- If Schema Registry OAuth appears enabled (token endpoint, client id or secret present) but required fields are missing, the provider will throw an informative validation error.
 
 Custom token provider (e.g., MSAL):
 
@@ -330,7 +338,8 @@ Environment variables equivalent (examples):
 - `Kafka__SchemaRegistry__ClientId` → `SchemaRegistryOptions.ClientId`
 - `Kafka__SchemaRegistry__ClientSecret` → `SchemaRegistryOptions.ClientSecret`
 - `Kafka__SchemaRegistry__TokenEndpointUrl` → `SchemaRegistryOptions.TokenEndpointUrl`
-- `Kafka__OAuthClientId` → top-level OAuth client id (fallback)
+- `Kafka__KafkaOauthClientId` → `KafkaClientOptions.KafkaOauthClientId` (Kafka brokers)
+- `Kafka__SchemaRegistryOauthClientId` → `KafkaClientOptions.SchemaRegistryOauthClientId` (Schema Registry)
 
 
 #### `Program.cs` (Azure Functions isolated)
