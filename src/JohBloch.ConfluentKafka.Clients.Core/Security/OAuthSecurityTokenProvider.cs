@@ -1,6 +1,4 @@
-using System.Net.Http.Json;
 using System.ComponentModel;
-using System.Text.Json.Serialization;
 using JohBloch.ConfluentKafka.Clients.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -61,15 +59,17 @@ public class OAuthSecurityTokenProvider : ISecurityTokenProvider
         try
         {
             _logger.LogInformation("Fetching new OAuth token from {Endpoint}", _kafkaOAuth.TokenEndpoint);
-            OAuthResponse response = await FetchTokenInternalAsync(cancellationToken);
-            
-            // Default to 1 hour if not provided
-            int expirySeconds = response.ExpiresIn > 0 ? response.ExpiresIn : 3600;
-            
-            _cachedToken = new AccessToken(
-                response.AccessToken, 
-                DateTimeOffset.UtcNow.AddSeconds(expirySeconds));
-                
+
+            _cachedToken = await OAuthClientCredentialsTokenClient.RequestTokenAsync(
+                    _httpClient,
+                    _kafkaOAuth.TokenEndpoint!,
+                    _kafkaOAuth.ClientId!,
+                    _kafkaOAuth.ClientSecret!,
+                    _kafkaOAuth.Scope,
+                    _logger,
+                    cancellationToken)
+                .ConfigureAwait(false);
+
             return _cachedToken;
         }
         catch (Exception ex)
@@ -197,45 +197,6 @@ public class OAuthSecurityTokenProvider : ISecurityTokenProvider
             throw new InvalidOperationException(
             $"Invalid KafkaOauthTokenEndpoint '{_kafkaOAuth.TokenEndpoint}'. Expected an absolute URL.");
         }
-    }
-
-    private async Task<OAuthResponse> FetchTokenInternalAsync(CancellationToken cancellationToken)
-    {
-        var formData = new Dictionary<string, string>
-        {
-            ["grant_type"] = "client_credentials",
-            ["client_id"] = _kafkaOAuth.ClientId ?? string.Empty,
-            ["client_secret"] = _kafkaOAuth.ClientSecret ?? string.Empty
-        };
-
-        if (!string.IsNullOrEmpty(_kafkaOAuth.Scope))
-        {
-            formData["scope"] = _kafkaOAuth.Scope;
-        }
-
-        using var content = new FormUrlEncodedContent(formData);
-        using HttpResponseMessage response = await _httpClient.PostAsync(_kafkaOAuth.TokenEndpoint, content, cancellationToken);
-        
-        if (!response.IsSuccessStatusCode)
-        {
-            string errorContent = await response.Content.ReadAsStringAsync(cancellationToken);
-            throw new HttpRequestException($"OAuth token request failed: {response.StatusCode}. Details: {errorContent}");
-        }
-
-        OAuthResponse? result = await response.Content.ReadFromJsonAsync<OAuthResponse>(cancellationToken: cancellationToken);
-        return result ?? throw new InvalidOperationException("OAuth response was empty or invalid JSON");
-    }
-
-    private class OAuthResponse
-    {
-        [JsonPropertyName("access_token")]
-        public string AccessToken { get; set; } = string.Empty;
-
-        [JsonPropertyName("expires_in")]
-        public int ExpiresIn { get; set; }
-
-        [JsonPropertyName("token_type")]
-        public string TokenType { get; set; } = string.Empty;
     }
 
     private sealed record OAuthConfig(

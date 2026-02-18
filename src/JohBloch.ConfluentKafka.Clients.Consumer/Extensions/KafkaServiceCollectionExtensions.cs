@@ -131,6 +131,7 @@ public static class KafkaServiceCollectionExtensions
         });
 
         services.AddHttpClient("KafkaOAuth");
+        services.AddHttpClient("SchemaRegistryOAuth");
         services.TryAddSingleton<ISecurityTokenProvider, OAuthSecurityTokenProvider>();
 
         services.TryAddSingleton<ISchemaCache>(_ => new InMemorySchemaCache());
@@ -151,11 +152,35 @@ public static class KafkaServiceCollectionExtensions
             bool hasCustomSecurityProvider = security is not null
                                             && security is not OAuthSecurityTokenProvider;
 
-            if (security != null && (hasCustomSecurityProvider || !string.IsNullOrWhiteSpace(srOpts.TokenEndpointUrl)))
+            // Schema Registry token flow:
+            // - Prefer a custom security provider if registered (e.g. MSAL).
+            // - Otherwise, if Schema Registry OAuth is configured, request token using SchemaRegistryOptions.
+            if (security != null && hasCustomSecurityProvider)
             {
                 tokenRefreshFunc = async () =>
                 {
                     AccessToken token = await security.GetAccessTokenAsync().ConfigureAwait(false);
+                    return (token.AccessTokenValue, token.ExpiresOn.UtcDateTime);
+                };
+            }
+            else if (!string.IsNullOrWhiteSpace(srOpts.TokenEndpointUrl))
+            {
+                IHttpClientFactory httpClientFactory = sp.GetRequiredService<IHttpClientFactory>();
+                ILogger logger = sp.GetRequiredService<ILoggerFactory>().CreateLogger("SchemaRegistryOAuth");
+                HttpClient httpClient = httpClientFactory.CreateClient("SchemaRegistryOAuth");
+
+                tokenRefreshFunc = async () =>
+                {
+                    AccessToken token = await OAuthClientCredentialsTokenClient.RequestTokenAsync(
+                            httpClient,
+                            srOpts.TokenEndpointUrl,
+                            srOpts.ClientId,
+                            srOpts.ClientSecret,
+                            srOpts.Scope,
+                            logger,
+                            CancellationToken.None)
+                        .ConfigureAwait(false);
+
                     return (token.AccessTokenValue, token.ExpiresOn.UtcDateTime);
                 };
             }
