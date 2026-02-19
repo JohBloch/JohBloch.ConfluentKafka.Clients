@@ -8,6 +8,18 @@ public sealed class SchemaRegistryOptions
     /// <summary>Schema Registry base URL.</summary>
     public string Url { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Schema Registry API key (BasicAuth username).
+    /// Used by providers like Confluent Cloud when OAuth is not used.
+    /// </summary>
+    public string ApiKey { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Schema Registry API secret (BasicAuth password).
+    /// Used by providers like Confluent Cloud when OAuth is not used.
+    /// </summary>
+    public string ApiSecret { get; set; } = string.Empty;
+
     /// <summary>OAuth client id.</summary>
     public string ClientId { get; set; } = string.Empty;
 

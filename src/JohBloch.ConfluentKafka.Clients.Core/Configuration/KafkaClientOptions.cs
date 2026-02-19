@@ -23,6 +23,18 @@ public class KafkaClientOptions
     public string SchemaRegistryUrl { get; set; } = string.Empty;
 
     /// <summary>
+    /// Schema Registry API key (BasicAuth username).
+    /// Commonly used with Confluent Cloud if Schema Registry OAuth is not configured.
+    /// </summary>
+    public string? SchemaRegistryApiKey { get; set; }
+
+    /// <summary>
+    /// Schema Registry API secret (BasicAuth password).
+    /// Commonly used with Confluent Cloud if Schema Registry OAuth is not configured.
+    /// </summary>
+    public string? SchemaRegistryApiSecret { get; set; }
+
+    /// <summary>
     /// Consumer Group ID.
     /// </summary>
     public string GroupId { get; set; } = string.Empty;

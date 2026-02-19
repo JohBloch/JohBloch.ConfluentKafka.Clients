@@ -1,1 +1,3 @@
 ﻿#nullable enable
+
+JohBloch.ConfluentKafka.Clients.Services.KafkaProducerClient.SendMessageWithDetectedSchemaAsync<T>(T message, string! key, string! producerKey, Confluent.Kafka.Headers? headers = null, System.Threading.CancellationToken ct = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<JohBloch.ConfluentKafka.Clients.Models.KafkaResult!>!

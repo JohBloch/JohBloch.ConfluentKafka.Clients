@@ -1,1 +1,13 @@
 ﻿#nullable enable
+
+JohBloch.ConfluentKafka.Clients.Interfaces.IKafkaProducerClient.SendMessageWithDetectedSchemaAsync<T>(T message, string! key, string! producerKey, Confluent.Kafka.Headers? headers = null, System.Threading.CancellationToken ct = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<JohBloch.ConfluentKafka.Clients.Models.KafkaResult!>!
+
+JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.SchemaRegistryApiKey.get -> string?
+JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.SchemaRegistryApiKey.set -> void
+JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.SchemaRegistryApiSecret.get -> string?
+JohBloch.ConfluentKafka.Clients.Configuration.KafkaClientOptions.SchemaRegistryApiSecret.set -> void
+
+JohBloch.ConfluentKafka.Clients.Models.SchemaRegistryOptions.ApiKey.get -> string!
+JohBloch.ConfluentKafka.Clients.Models.SchemaRegistryOptions.ApiKey.set -> void
+JohBloch.ConfluentKafka.Clients.Models.SchemaRegistryOptions.ApiSecret.get -> string!
+JohBloch.ConfluentKafka.Clients.Models.SchemaRegistryOptions.ApiSecret.set -> void
