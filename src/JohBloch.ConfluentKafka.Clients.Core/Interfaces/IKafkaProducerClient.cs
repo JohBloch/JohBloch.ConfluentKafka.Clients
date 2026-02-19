@@ -61,6 +61,22 @@ public interface IKafkaProducerClient : IDisposable
     Task<KafkaResult> SendMessageWithSchemaAsync<T>(T message, string key, string producerKey, Models.SchemaType schemaType, Headers? headers = null, CancellationToken ct = default);
 
     /// <summary>
+    /// Sends a single message to Kafka by first detecting the schema type from Schema Registry for the producer's configured topic.
+    /// </summary>
+    /// <remarks>
+    /// Detection uses the latest schema for subject <c>{topic}-value</c> and maps Schema Registry schema type to <see cref="Models.SchemaType"/>.
+    /// If detection fails, the implementation falls back to Avro for backward compatibility.
+    /// </remarks>
+    /// <typeparam name="T">Type of the message value.</typeparam>
+    /// <param name="message">Message payload to send.</param>
+    /// <param name="key">Partitioning key for the message.</param>
+    /// <param name="producerKey">Logical producer configuration key.</param>
+    /// <param name="headers">Optional Kafka headers.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>Result with delivery metadata and success flag.</returns>
+    Task<KafkaResult> SendMessageWithDetectedSchemaAsync<T>(T message, string key, string producerKey, Headers? headers = null, CancellationToken ct = default);
+
+    /// <summary>
     /// Sends a batch of messages to Kafka using batch-optimized producer settings.
     /// </summary>
     /// <typeparam name="T">Type of the message value.</typeparam>

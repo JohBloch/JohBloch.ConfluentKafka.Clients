@@ -385,6 +385,33 @@ namespace JohBloch.ConfluentKafka.Clients.Services
             return await SendMessageAsync(message, key, producerKey, headers, wrappedSerializer, ct);
         }
 
+        /// <summary>
+        /// Sends a single message to Kafka by first detecting the schema type from Schema Registry for the producer's configured topic.
+        /// </summary>
+        public async Task<KafkaResult> SendMessageWithDetectedSchemaAsync<T>(
+            T message,
+            string key,
+            string producerKey,
+            Headers? headers = null,
+            CancellationToken ct = default)
+        {
+            ThrowIfDisposed();
+
+            if (!_producerOptions.TryGetValue(producerKey, out var producerOpts))
+            {
+                throw new ArgumentException($"Producer key '{producerKey}' not found in configuration", nameof(producerKey));
+            }
+
+            var topic = producerOpts.Topic;
+            if (string.IsNullOrWhiteSpace(topic))
+            {
+                throw new InvalidOperationException($"Producer '{producerKey}' does not have a Topic configured.");
+            }
+
+            var schemaType = await _serializerFactory.GetSchemaTypeForTopicAsync(topic, isKey: false).ConfigureAwait(false);
+            return await SendMessageWithSchemaAsync(message, key, producerKey, schemaType, headers, ct).ConfigureAwait(false);
+        }
+
         private async Task<KafkaResult> ProduceMessageAsync<T>(
             IProducer<string, T> producer,
             T message,

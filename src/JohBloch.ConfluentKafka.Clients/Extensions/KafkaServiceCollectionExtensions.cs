@@ -123,6 +123,18 @@ public static class KafkaServiceCollectionExtensions
                 srOpts.Url = cfg.SchemaRegistryUrl;
             }
 
+            if (string.IsNullOrWhiteSpace(srOpts.ApiKey))
+            {
+                srOpts.ApiKey = cfg.SchemaRegistryApiKey
+                             ?? string.Empty;
+            }
+
+            if (string.IsNullOrWhiteSpace(srOpts.ApiSecret))
+            {
+                srOpts.ApiSecret = cfg.SchemaRegistryApiSecret
+                                ?? string.Empty;
+            }
+
             if (string.IsNullOrWhiteSpace(srOpts.TokenEndpointUrl))
             {
                 srOpts.TokenEndpointUrl = cfg.SchemaRegistryOauthTokenEndpoint
@@ -178,6 +190,22 @@ public static class KafkaServiceCollectionExtensions
                 Url = string.IsNullOrWhiteSpace(srOpts.Url) ? kafkaOpts.SchemaRegistryUrl : srOpts.Url
             };
 
+            if (!string.IsNullOrWhiteSpace(srOpts.TokenEndpointUrl))
+            {
+                config.BearerAuthCredentialsSource = BearerAuthCredentialsSource.OAuthBearer;
+                config.BearerAuthTokenEndpointUrl = srOpts.TokenEndpointUrl;
+                config.BearerAuthClientId = srOpts.ClientId;
+                config.BearerAuthClientSecret = srOpts.ClientSecret;
+                config.BearerAuthScope = srOpts.Scope;
+                config.BearerAuthLogicalCluster = srOpts.LogicalCluster;
+                config.BearerAuthIdentityPoolId = srOpts.IdentityPoolId;
+            }
+            else if (!string.IsNullOrWhiteSpace(srOpts.ApiKey) && !string.IsNullOrWhiteSpace(srOpts.ApiSecret))
+            {
+                config.BasicAuthCredentialsSource = AuthCredentialsSource.UserInfo;
+                config.BasicAuthUserInfo = $"{srOpts.ApiKey}:{srOpts.ApiSecret}";
+            }
+
             Func<Task<(string token, DateTime expiresAt)>>? tokenRefreshFunc = null;
             bool hasCustomSecurityProvider = security is not null
                                             && security is not OAuthSecurityTokenProvider;
@@ -193,27 +221,8 @@ public static class KafkaServiceCollectionExtensions
                     return (token.AccessTokenValue, token.ExpiresOn.UtcDateTime);
                 };
             }
-            else if (!string.IsNullOrWhiteSpace(srOpts.TokenEndpointUrl))
-            {
-                IHttpClientFactory httpClientFactory = sp.GetRequiredService<IHttpClientFactory>();
-                ILogger logger = sp.GetRequiredService<ILoggerFactory>().CreateLogger("SchemaRegistryOAuth");
-                HttpClient httpClient = httpClientFactory.CreateClient("SchemaRegistryOAuth");
-
-                tokenRefreshFunc = async () =>
-                {
-                    AccessToken token = await OAuthClientCredentialsTokenClient.RequestTokenAsync(
-                            httpClient,
-                            srOpts.TokenEndpointUrl,
-                            srOpts.ClientId,
-                            srOpts.ClientSecret,
-                            srOpts.Scope,
-                            logger,
-                            CancellationToken.None)
-                        .ConfigureAwait(false);
-
-                    return (token.AccessTokenValue, token.ExpiresOn.UtcDateTime);
-                };
-            }
+            // If no custom security provider is used, prefer Confluent.SchemaRegistry's built-in OAuth support
+            // via SchemaRegistryConfig.BearerAuth* settings (configured above).
 
             SchemaClientOptions options = new SchemaClientOptions();
             if (!string.IsNullOrWhiteSpace(srOpts.LogicalCluster))

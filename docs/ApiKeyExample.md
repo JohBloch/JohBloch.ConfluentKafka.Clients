@@ -73,8 +73,9 @@ services.AddKafkaClients(options =>
     };
     
     // Schema Registry API key authentication
-    // Note: Schema Registry auth is configured separately in the library
-    // The library uses BasicAuth with the Schema Registry URL
+    // Schema Registry API key authentication
+    // Configure via options.SchemaRegistryApiKey / options.SchemaRegistryApiSecret
+    // (the library maps these to Confluent.SchemaRegistry.SchemaRegistryConfig BasicAuth)
 });
 ```
 
@@ -97,10 +98,14 @@ services.AddKafkaClients(options =>
         { "sasl.username", "kafka-api-key" },
         { "sasl.password", "kafka-api-secret" }
     };
+
+    // Schema Registry authentication
+    options.SchemaRegistryApiKey = "schema-registry-api-key";
+    options.SchemaRegistryApiSecret = "schema-registry-api-secret";
     
-    // Schema Registry authentication (configure via Schema Registry client config)
-    // The library's SchemaRegistryFactory handles this internally
-    // For custom configuration, you can inject ISchemaRegistryExtClient
+    // Under the hood, the library configures Confluent.SchemaRegistry.SchemaRegistryConfig:
+    // - BasicAuthCredentialsSource = UserInfo
+    // - BasicAuthUserInfo = "<apiKey>:<apiSecret>"
 });
 ```
 
