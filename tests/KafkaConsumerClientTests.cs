@@ -209,6 +209,55 @@ public class KafkaConsumerClientTests
         public Dictionary<string, string>? GetKafkaSaslConfig() => new Dictionary<string, string> { { "sasl.mechanism", "OAUTHBEARER" } };
     }
 
+    [Fact]
+    public void BuildConsumerConfig_SecurityModeApiKeySecret_UsesSaslPlainAndDoesNotUseOAuthProvider()
+    {
+        string saslUsername = Guid.NewGuid().ToString("N");
+        string saslPassword = Guid.NewGuid().ToString("N");
+
+        var opts = new KafkaConsumerOptions
+        {
+            BootstrapServers = "localhost:9092",
+            GroupId = "test-group",
+            Topic = "test-topic",
+            SecurityMode = KafkaConsumerSecurityMode.ApiKeySecret,
+            ApiKey = saslUsername,
+            ApiSecret = saslPassword
+        };
+
+        var client = CreateClient(opts);
+        var mi = typeof(KafkaConsumerClient).GetMethod("BuildConsumerConfig", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+        Assert.NotNull(mi);
+
+        var cfg = (Confluent.Kafka.ConsumerConfig)mi!.Invoke(client, Array.Empty<object>())!;
+        Assert.Equal(Confluent.Kafka.SecurityProtocol.SaslSsl, cfg.SecurityProtocol);
+        Assert.Equal(Confluent.Kafka.SaslMechanism.Plain, cfg.SaslMechanism);
+        Assert.Equal(saslUsername, cfg.SaslUsername);
+        Assert.Equal(saslPassword, cfg.SaslPassword);
+
+        // Ensure OAuth settings from FakeTokenProvider were not applied.
+        Assert.NotEqual(Confluent.Kafka.SaslMechanism.OAuthBearer, cfg.SaslMechanism);
+    }
+
+    [Fact]
+    public void BuildConsumerConfig_SecurityModeNone_IgnoresOAuthProvider()
+    {
+        var opts = new KafkaConsumerOptions
+        {
+            BootstrapServers = "localhost:9092",
+            GroupId = "test-group",
+            Topic = "test-topic",
+            SecurityMode = KafkaConsumerSecurityMode.None
+        };
+
+        var client = CreateClient(opts);
+        var mi = typeof(KafkaConsumerClient).GetMethod("BuildConsumerConfig", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+        Assert.NotNull(mi);
+
+        var cfg = (Confluent.Kafka.ConsumerConfig)mi!.Invoke(client, Array.Empty<object>())!;
+        Assert.Equal(Confluent.Kafka.SecurityProtocol.Plaintext, cfg.SecurityProtocol);
+    }
+
     private JohBloch.ConfluentKafka.SchemaRegistryExtClient.Interfaces.ISchemaRegistryExtClient CreateSchemaRegistry()
     {
         var cfg = new Confluent.SchemaRegistry.SchemaRegistryConfig { Url = "http://localhost:8081" };

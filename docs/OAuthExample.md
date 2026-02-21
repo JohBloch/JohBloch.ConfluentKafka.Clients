@@ -8,7 +8,7 @@ This guide demonstrates how to configure OAuth/OIDC authentication for Kafka cli
 - OAuth identity provider (Azure AD, Okta, Auth0, Keycloak, etc.)
 - Client credentials (client ID and client secret)
 
-Note: when `KafkaOauthTokenEndpoint`/`KafkaOauthClientId`/`KafkaOauthClientSecret` are configured, the library will automatically add the needed SASL/OAUTHBEARER settings (including `security.protocol`, `sasl.mechanism`, `sasl.oauthbearer.method=OIDC`, `sasl.oauthbearer.token.endpoint.url`, and `sasl.oauthbearer.client.id`) to both producer and consumer configs.
+Note: when `Kafka:OAuth:TokenEndpointUrl`/`Kafka:OAuth:ClientId`/`Kafka:OAuth:ClientSecret` are configured, the library will automatically add the needed SASL/OAUTHBEARER settings (including `security.protocol`, `sasl.mechanism`, `sasl.oauthbearer.method=OIDC`, `sasl.oauthbearer.token.endpoint.url`, and `sasl.oauthbearer.client.id`) to both producer and consumer configs.
 
 ## Basic OAuth Configuration
 
@@ -25,10 +25,10 @@ services.AddKafkaClients(options =>
     options.GroupId = "oauth-consumer-group";
     
     // Kafka OAuth configuration
-    options.KafkaOauthTokenEndpoint = "https://your-oauth-provider/oauth/token";
-    options.KafkaOauthClientId = "your-client-id";
-    options.KafkaOauthClientSecret = "your-client-secret";
-    options.KafkaOauthScope = "kafka"; // Optional, depends on your OAuth provider
+    options.OAuth.TokenEndpointUrl = "https://your-oauth-provider/oauth/token";
+    options.OAuth.ClientId = "your-client-id";
+    options.OAuth.ClientSecret = "your-client-secret";
+    options.OAuth.Scope = "kafka"; // Optional, depends on your OAuth provider
 });
 
 var serviceProvider = services.BuildServiceProvider();
@@ -44,10 +44,10 @@ services.AddKafkaClients(options =>
     options.GroupId = "azure-ad-consumer-group";
     
     // Azure AD OAuth configuration
-    options.KafkaOauthTokenEndpoint = "https://login.microsoftonline.com/{tenant-id}/oauth2/v2.0/token";
-    options.KafkaOauthClientId = "your-app-client-id";
-    options.KafkaOauthClientSecret = "your-app-client-secret";
-    options.KafkaOauthScope = "https://your-kafka-instance/.default";
+    options.OAuth.TokenEndpointUrl = "https://login.microsoftonline.com/{tenant-id}/oauth2/v2.0/token";
+    options.OAuth.ClientId = "your-app-client-id";
+    options.OAuth.ClientSecret = "your-app-client-secret";
+    options.OAuth.Scope = "https://your-kafka-instance/.default";
 });
 ```
 
@@ -75,10 +75,10 @@ services.AddKafkaClients(options =>
     options.GroupId = "okta-consumer-group";
     
     // Okta OAuth configuration
-    options.KafkaOauthTokenEndpoint = "https://your-domain.okta.com/oauth2/default/v1/token";
-    options.KafkaOauthClientId = "your-okta-client-id";
-    options.KafkaOauthClientSecret = "your-okta-client-secret";
-    options.KafkaOauthScope = "kafka-access";
+    options.OAuth.TokenEndpointUrl = "https://your-domain.okta.com/oauth2/default/v1/token";
+    options.OAuth.ClientId = "your-okta-client-id";
+    options.OAuth.ClientSecret = "your-okta-client-secret";
+    options.OAuth.Scope = "kafka-access";
 });
 ```
 
@@ -92,10 +92,10 @@ services.AddKafkaClients(options =>
     options.GroupId = "keycloak-consumer-group";
     
     // Keycloak OAuth configuration
-    options.KafkaOauthTokenEndpoint = "https://your-keycloak-server/auth/realms/your-realm/protocol/openid-connect/token";
-    options.KafkaOauthClientId = "kafka-client";
-    options.KafkaOauthClientSecret = "your-keycloak-client-secret";
-    options.KafkaOauthScope = "openid";
+    options.OAuth.TokenEndpointUrl = "https://your-keycloak-server/auth/realms/your-realm/protocol/openid-connect/token";
+    options.OAuth.ClientId = "kafka-client";
+    options.OAuth.ClientSecret = "your-keycloak-client-secret";
+    options.OAuth.Scope = "openid";
 });
 ```
 
@@ -107,9 +107,9 @@ When using OAuth with SSL, configure certificate paths:
 services.AddKafkaClients(options =>
 {
     options.BootstrapServers = "your-kafka-broker:9093";
-    options.KafkaOauthTokenEndpoint = "https://your-oauth-provider/oauth/token";
-    options.KafkaOauthClientId = "your-client-id";
-    options.KafkaOauthClientSecret = "your-client-secret";
+    options.OAuth.TokenEndpointUrl = "https://your-oauth-provider/oauth/token";
+    options.OAuth.ClientId = "your-client-id";
+    options.OAuth.ClientSecret = "your-client-secret";
     
     // Optional: add extra SSL settings (in addition to the auto-added SASL/OAUTHBEARER keys)
     options.GlobalProducerConfig = new Dictionary<string, string>
@@ -140,14 +140,14 @@ services.AddKafkaClients(options =>
     options.GroupId = configuration["Kafka:GroupId"]!;
     
     // OAuth from environment/config
-    options.KafkaOauthTokenEndpoint = configuration["Kafka:OAuth:TokenEndpoint"]!;
-    options.KafkaOauthClientId = configuration["Kafka:OAuth:ClientId"]!;
-    options.KafkaOauthClientSecret = configuration["Kafka:OAuth:ClientSecret"]!;
-    options.KafkaOauthScope = configuration["Kafka:OAuth:Scope"];
+    options.OAuth.TokenEndpointUrl = configuration["Kafka:OAuth:TokenEndpointUrl"]!;
+    options.OAuth.ClientId = configuration["Kafka:OAuth:ClientId"]!;
+    options.OAuth.ClientSecret = configuration["Kafka:OAuth:ClientSecret"]!;
+    options.OAuth.Scope = configuration["Kafka:OAuth:Scope"];
 
     // Optional token extensions used by some brokers (e.g. Confluent Cloud)
-    options.KafkaOauthLogicalCluster = configuration["Kafka:OAuth:LogicalCluster"];
-    options.KafkaOauthIdentityPoolId = configuration["Kafka:OAuth:IdentityPoolId"];
+    options.OAuth.LogicalCluster = configuration["Kafka:OAuth:LogicalCluster"];
+    options.OAuth.IdentityPoolId = configuration["Kafka:OAuth:IdentityPoolId"];
     
     options.GlobalProducerConfig = new Dictionary<string, string>
     {
@@ -167,7 +167,7 @@ services.AddKafkaClients(options =>
     "SecurityProtocol": "SASL_SSL",
     "SaslMechanism": "OAUTHBEARER",
     "OAuth": {
-      "TokenEndpoint": "https://your-oauth-provider/oauth/token",
+            "TokenEndpointUrl": "https://your-oauth-provider/oauth/token",
       "ClientId": "your-client-id",
       "ClientSecret": "your-client-secret",
             "Scope": "kafka",
@@ -211,7 +211,7 @@ services.AddKafkaClients(options =>
     options.GroupId = "my-group";
 
     // If you're not using the built-in OAuthSecurityTokenProvider, you do not need to
-    // configure KafkaOauthTokenEndpoint/KafkaOauthClientId/KafkaOauthClientSecret for token acquisition.
+    // configure Kafka:OAuth:TokenEndpointUrl/ClientId/ClientSecret for token acquisition.
     //
     // However, Kafka still needs SASL/OAUTHBEARER configuration. Provide it via:
     // - options.ConsumerConfig / options.GlobalProducerConfig, OR

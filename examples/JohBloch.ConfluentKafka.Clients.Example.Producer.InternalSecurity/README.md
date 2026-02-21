@@ -8,7 +8,13 @@ The app reads configuration from these sources (in this order):
 
 1. `local.settings.sample.json` (optional)
 2. `local.settings.json` (optional, overrides sample)
-3. Environment variables (override JSON)
+3. `Values` entries inside `local.settings*.json` (Azure Functions format)
+4. Environment variables (override JSON)
+
+This example supports **two** `local.settings.json` formats:
+
+- **Azure Functions-style**: `{ "IsEncrypted": false, "Values": { "Kafka__OAuth__ClientId": "..." } }`
+- **Plain JSON sections**: `{ "Kafka": { "OAuth": { "ClientId": "..." } } }`
 
 ### Recommended setup
 

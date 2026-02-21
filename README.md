@@ -197,7 +197,9 @@ There are two common ways to configure Schema Registry:
 - **Option A (simplest):** bind everything from `Kafka` using `KafkaClientOptions`.
 - **Option B (most explicit):** bind Schema Registry settings separately using `SchemaRegistryOptions` under `Kafka__SchemaRegistry__*`.
 
-Option A is a great default when you want a single options object (`KafkaClientOptions`). If Kafka and Schema Registry share the same OAuth settings, set both the `KafkaOauth*` and `SchemaRegistryOauth*` values to the same values.
+Option A is a great default when you want a single options object (`KafkaClientOptions`).
+
+If Kafka and Schema Registry share the same OAuth settings, configure Kafka OAuth via `Kafka:OAuth:*` and configure Schema Registry OAuth via either `Kafka:SchemaRegistry:*` or `Kafka:SchemaRegistryOauth*`.
 
 ##### Option A: Kafka OAuth + Schema Registry OAuth + `Kafka__SchemaRegistryUrl`
 
@@ -211,13 +213,13 @@ Option A is a great default when you want a single options object (`KafkaClientO
         "Kafka__BootstrapServers": "YOUR_BOOTSTRAP_SERVERS",
         "Kafka__GroupId": "my-function-consumer",
 
-        "Kafka__KafkaOauthTokenEndpoint": "https://YOUR_IDP/oauth/token",
-        "Kafka__KafkaOauthClientId": "YOUR_CLIENT_ID",
-        "Kafka__KafkaOauthClientSecret": "YOUR_CLIENT_SECRET",
-        "Kafka__KafkaOauthScope": "YOUR_SCOPE",
+        "Kafka__OAuth__TokenEndpointUrl": "https://YOUR_IDP/oauth/token",
+        "Kafka__OAuth__ClientId": "YOUR_CLIENT_ID",
+        "Kafka__OAuth__ClientSecret": "YOUR_CLIENT_SECRET",
+        "Kafka__OAuth__Scope": "YOUR_SCOPE",
 
-        "Kafka__KafkaOauthLogicalCluster": "lkc-...",
-        "Kafka__KafkaOauthIdentityPoolId": "pool-...",
+        "Kafka__OAuth__LogicalCluster": "lkc-...",
+        "Kafka__OAuth__IdentityPoolId": "pool-...",
 
         "Kafka__SchemaRegistryOauthTokenEndpoint": "https://YOUR_IDP/oauth/token",
         "Kafka__SchemaRegistryOauthClientId": "YOUR_CLIENT_ID",
@@ -248,13 +250,13 @@ Option A is a great default when you want a single options object (`KafkaClientO
         "Kafka__BootstrapServers": "YOUR_BOOTSTRAP_SERVERS",
         "Kafka__GroupId": "my-function-consumer",
 
-        "Kafka__KafkaOauthTokenEndpoint": "https://YOUR_IDP/oauth/token",
-        "Kafka__KafkaOauthClientId": "YOUR_CLIENT_ID",
-        "Kafka__KafkaOauthClientSecret": "YOUR_CLIENT_SECRET",
-        "Kafka__KafkaOauthScope": "YOUR_SCOPE",
+        "Kafka__OAuth__TokenEndpointUrl": "https://YOUR_IDP/oauth/token",
+        "Kafka__OAuth__ClientId": "YOUR_CLIENT_ID",
+        "Kafka__OAuth__ClientSecret": "YOUR_CLIENT_SECRET",
+        "Kafka__OAuth__Scope": "YOUR_SCOPE",
 
-        "Kafka__KafkaOauthLogicalCluster": "lkc-...",
-        "Kafka__KafkaOauthIdentityPoolId": "pool-...",
+        "Kafka__OAuth__LogicalCluster": "lkc-...",
+        "Kafka__OAuth__IdentityPoolId": "pool-...",
 
         "Kafka__Consumer__Topic": "orders",
         "Kafka__Consumer__EnableAutoCommit": "false",
@@ -338,7 +340,7 @@ Environment variables equivalent (examples):
 - `Kafka__SchemaRegistry__ClientId` → `SchemaRegistryOptions.ClientId`
 - `Kafka__SchemaRegistry__ClientSecret` → `SchemaRegistryOptions.ClientSecret`
 - `Kafka__SchemaRegistry__TokenEndpointUrl` → `SchemaRegistryOptions.TokenEndpointUrl`
-- `Kafka__KafkaOauthClientId` → `KafkaClientOptions.KafkaOauthClientId` (Kafka brokers)
+- `Kafka__OAuth__ClientId` → `KafkaClientOptions.OAuth.ClientId` (Kafka brokers)
 - `Kafka__SchemaRegistryOauthClientId` → `KafkaClientOptions.SchemaRegistryOauthClientId` (Schema Registry)
 
 
