@@ -1,43 +1,35 @@
 {
-  "SchemaRegistry": {
-    "Url": "http://localhost:8081",
-    "LogicalCluster": "",
-    "IdentityPoolId": "",
-    "Cache": {
-      "Provider": "Redis",
-      "Redis": {
-        "ConnectionString": "localhost:6379",
-        "KeyPrefix": "schema-registry-cache:",
-        "DefaultTtlSeconds": "3600"
-      }
-    }
-  },
-  "Msal": {
-    "TenantId": "<your-tenant-id-guid>",
-    "ClientId": "<your-public-client-app-id-guid>",
-    "Scopes": "api://<your-app-id>/.default",
-    "Authority": "",
-    "TokenEndpointUrl": "",
-    "CacheFilePath": ""
-  },
-  "Kafka": {
-    "BootstrapServers": "localhost:9092",
-    "OAuth": {
-      "ClientId": "",
-      "ClientSecret": "",
-      "Scope": "",
-      "Authority": "",
-      "TokenEndpointUrl": "",
-      "LogicalCluster": "",
-      "IdentityPoolId": ""
-    }
-  },
-  "Consumer": {
-    "GroupId": "example-consumer-group",
-    "Topics": "topic-a,topic-b",
-    "AutoOffsetReset": "earliest",
-    "EnableAutoCommit": "true",
-    "DefaultSchemaType": "Json",
-    "AutoDetectSchemaType": "true"
+  "IsEncrypted": false,
+  "Values": {
+    "SchemaRegistry__Url": "http://localhost:8081",
+    "SchemaRegistry__LogicalCluster": "",
+    "SchemaRegistry__IdentityPoolId": "",
+    "SchemaRegistry__Cache__Provider": "Redis",
+    "SchemaRegistry__Cache__Redis__ConnectionString": "localhost:6379",
+    "SchemaRegistry__Cache__Redis__KeyPrefix": "schema-registry-cache:",
+    "SchemaRegistry__Cache__Redis__DefaultTtlSeconds": "3600",
+
+    "Msal__TenantId": "<your-tenant-id-guid>",
+    "Msal__ClientId": "<your-public-client-app-id-guid>",
+    "Msal__Scopes": "api://<your-app-id>/.default",
+    "Msal__Authority": "",
+    "Msal__TokenEndpointUrl": "",
+    "Msal__CacheFilePath": "",
+
+    "Kafka__BootstrapServers": "localhost:9092",
+    "Kafka__OAuth__ClientId": "",
+    "Kafka__OAuth__ClientSecret": "",
+    "Kafka__OAuth__Scope": "",
+    "Kafka__OAuth__Authority": "",
+    "Kafka__OAuth__TokenEndpointUrl": "",
+    "Kafka__OAuth__LogicalCluster": "",
+    "Kafka__OAuth__IdentityPoolId": "",
+
+    "Consumer__GroupId": "example-consumer-group",
+    "Consumer__Topics": "topic-a,topic-b",
+    "Consumer__AutoOffsetReset": "earliest",
+    "Consumer__EnableAutoCommit": "true",
+    "Consumer__DefaultSchemaType": "Json",
+    "Consumer__AutoDetectSchemaType": "true"
   }
 }

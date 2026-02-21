@@ -1,44 +1,35 @@
 {
-  "SchemaRegistry": {
-    "Url": "http://localhost:8081",
-    "ClientId": "",
-    "ClientSecret": "",
-    "Scope": "",
-    "Authority": "",
-    "TokenEndpointUrl": "",
-    "LogicalCluster": "",
-    "IdentityPoolId": ""
-  },
-  "Kafka": {
-    "BootstrapServers": "localhost:9092",
-    "OAuth": {
-      "ClientId": "",
-      "ClientSecret": "",
-      "Scope": "",
-      "Authority": "",
-      "TokenEndpointUrl": "",
-      "LogicalCluster": "",
-      "IdentityPoolId": ""
-    }
-  },
-  "Producer": {
-    "Config": {
-      "acks": "all",
-      "enable.idempotence": "true"
-    },
-    "Producers": {
-      "orders": {
-        "Topic": "topic-a",
-        "AutoDlqOnDeliveryFailure": "true",
-        "DeadLetterQueueTopicPattern": "dlq-{topic}",
-        "IncludeStackTraceInDlq": "false"
-      },
-      "audit": {
-        "Topic": "topic-b",
-        "AutoDlqOnDeliveryFailure": "true",
-        "DeadLetterQueueTopicPattern": "dlq-{topic}",
-        "IncludeStackTraceInDlq": "false"
-      }
-    }
+  "IsEncrypted": false,
+  "Values": {
+    "SchemaRegistry__Url": "http://localhost:8081",
+    "SchemaRegistry__ClientId": "",
+    "SchemaRegistry__ClientSecret": "",
+    "SchemaRegistry__Scope": "",
+    "SchemaRegistry__Authority": "",
+    "SchemaRegistry__TokenEndpointUrl": "",
+    "SchemaRegistry__LogicalCluster": "",
+    "SchemaRegistry__IdentityPoolId": "",
+
+    "Kafka__BootstrapServers": "localhost:9092",
+    "Kafka__OAuth__ClientId": "",
+    "Kafka__OAuth__ClientSecret": "",
+    "Kafka__OAuth__Scope": "",
+    "Kafka__OAuth__Authority": "",
+    "Kafka__OAuth__TokenEndpointUrl": "",
+    "Kafka__OAuth__LogicalCluster": "",
+    "Kafka__OAuth__IdentityPoolId": "",
+
+    "Producer__Config__acks": "all",
+    "Producer__Config__enable.idempotence": "true",
+
+    "Producer__Producers__orders__Topic": "topic-a",
+    "Producer__Producers__orders__AutoDlqOnDeliveryFailure": "true",
+    "Producer__Producers__orders__DeadLetterQueueTopicPattern": "dlq-{topic}",
+    "Producer__Producers__orders__IncludeStackTraceInDlq": "false",
+
+    "Producer__Producers__audit__Topic": "topic-b",
+    "Producer__Producers__audit__AutoDlqOnDeliveryFailure": "true",
+    "Producer__Producers__audit__DeadLetterQueueTopicPattern": "dlq-{topic}",
+    "Producer__Producers__audit__IncludeStackTraceInDlq": "false"
   }
 }

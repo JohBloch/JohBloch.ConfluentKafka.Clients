@@ -21,6 +21,7 @@ namespace JohBloch.ConfluentKafka.Clients.Services
         private int _disposed;
         private readonly IDictionary<string, string>? _globalConfig;
         private readonly IDictionary<string, string>? _consumerOverrides;
+        private bool _oauthRefreshHandlerEnabled;
 
         private void ThrowIfDisposed()
         {
@@ -120,11 +121,7 @@ namespace JohBloch.ConfluentKafka.Clients.Services
 
             _consumer = consumerOverride ?? InitializeConsumer();
 
-            if (!string.IsNullOrWhiteSpace(_kafkaConsumerOpts.Topic))
-            {
-                _consumer.Subscribe(_kafkaConsumerOpts.Topic);
-                _logger.LogInformation("Subscribed to topic: {topic}", _kafkaConsumerOpts.Topic);
-            }
+            SubscribeFromOptions(prefix: null);
         }
 
         /// <summary>
@@ -209,8 +206,14 @@ namespace JohBloch.ConfluentKafka.Clients.Services
             IDictionary<string, IDictionary<string, string>>? perConsumerConfigs,
             IConsumer<string, byte[]>? consumerOverride)
         {
-            if (consumerOptions == null) throw new ArgumentNullException(nameof(consumerOptions));
-            if (string.IsNullOrWhiteSpace(consumerKey)) throw new ArgumentNullException(nameof(consumerKey));
+            if (consumerOptions == null)
+            {
+                throw new ArgumentNullException(nameof(consumerOptions));
+            }
+            if (string.IsNullOrWhiteSpace(consumerKey))
+            {
+                throw new ArgumentNullException(nameof(consumerKey));
+            }
 
             ArgumentNullException.ThrowIfNull(logger);
             ArgumentNullException.ThrowIfNull(loggerFactory);
@@ -222,8 +225,10 @@ namespace JohBloch.ConfluentKafka.Clients.Services
             _srOpts = schemaRegistryOptions.Value;
             _securityProvider = securityProvider;
 
-            if (!consumerOptions.TryGetValue(consumerKey, out var selected))
+            if (!consumerOptions.TryGetValue(consumerKey, out KafkaConsumerOptions? selected))
+            {
                 throw new KeyNotFoundException($"Consumer options not found for key '{consumerKey}'");
+            }
             _kafkaConsumerOpts = selected;
 
             _schemaRegistry = schemaRegistry;
@@ -232,14 +237,48 @@ namespace JohBloch.ConfluentKafka.Clients.Services
             _deserializerFactory = new DeserializerFactory(_schemaRegistry, loggerFactory);
 
             _globalConfig = globalConfig;
-            _consumerOverrides = perConsumerConfigs != null && perConsumerConfigs.TryGetValue(consumerKey, out var over) ? over : null;
+            IDictionary<string, string>? over = null;
+            bool foundOverrides = perConsumerConfigs is not null
+                && perConsumerConfigs.TryGetValue(consumerKey, out over);
+            _consumerOverrides = foundOverrides ? over : null;
 
             _consumer = consumerOverride ?? InitializeConsumer();
 
-            if (!string.IsNullOrWhiteSpace(_kafkaConsumerOpts.Topic))
+            SubscribeFromOptions(prefix: consumerKey);
+        }
+
+        private void SubscribeFromOptions(string? prefix)
+        {
+            IReadOnlyList<string> topics = _kafkaConsumerOpts.GetTopics();
+            if (topics.Count == 0)
             {
-                _consumer.Subscribe(_kafkaConsumerOpts.Topic);
-                _logger.LogInformation("[{key}] Subscribed to topic: {topic}", consumerKey, _kafkaConsumerOpts.Topic);
+                return;
+            }
+
+            _consumer.Subscribe(topics);
+
+            string joined = string.Join(",", topics);
+            if (topics.Count == 1)
+            {
+                if (string.IsNullOrWhiteSpace(prefix))
+                {
+                    _logger.LogInformation("Subscribed to topic: {topic}", joined);
+                }
+                else
+                {
+                    _logger.LogInformation("[{key}] Subscribed to topic: {topic}", prefix, joined);
+                }
+            }
+            else
+            {
+                if (string.IsNullOrWhiteSpace(prefix))
+                {
+                    _logger.LogInformation("Subscribed to topics: {topics}", joined);
+                }
+                else
+                {
+                    _logger.LogInformation("[{key}] Subscribed to topics: {topics}", prefix, joined);
+                }
             }
         }
 
@@ -251,9 +290,9 @@ namespace JohBloch.ConfluentKafka.Clients.Services
         {
             // Initialization without verbose logging
 
-            var config = BuildConsumerConfig();
+            ConsumerConfig config = BuildConsumerConfig();
 
-            var consumerBuilder = new ConsumerBuilder<string, byte[]>(config)
+            ConsumerBuilder<string, byte[]> consumerBuilder = new ConsumerBuilder<string, byte[]>(config)
                 .SetKeyDeserializer(Deserializers.Utf8)
                 .SetValueDeserializer(Deserializers.ByteArray)
                 .SetErrorHandler((_, e) =>
@@ -262,7 +301,7 @@ namespace JohBloch.ConfluentKafka.Clients.Services
                 })
                 .SetLogHandler((_, logMessage) =>
                 {
-                    var level = logMessage.Level switch
+                    LogLevel level = logMessage.Level switch
                     {
                         SyslogLevel.Emergency or SyslogLevel.Alert or SyslogLevel.Critical or SyslogLevel.Error => LogLevel.Error,
                         SyslogLevel.Warning => LogLevel.Warning,
@@ -276,20 +315,20 @@ namespace JohBloch.ConfluentKafka.Clients.Services
                 .SetPartitionsAssignedHandler((_, partitions) => { })
                 .SetPartitionsRevokedHandler((_, partitions) => { });
 
-            // Only attach OAuth refresh handler when OAuth is explicitly enabled.
-            if (config.SaslMechanism == SaslMechanism.OAuthBearer)
+            // Only attach OAuth refresh handler when OAuth mode is selected.
+            if (_oauthRefreshHandlerEnabled)
             {
                 consumerBuilder.SetOAuthBearerTokenRefreshHandler((consumer, _) =>
                 {
                     try
                     {
-                        var token = _securityProvider.GetAccessTokenAsync(CancellationToken.None)
+                        AccessToken token = _securityProvider.GetAccessTokenAsync(CancellationToken.None)
                             .GetAwaiter()
                             .GetResult();
 
-                        var extensions = _securityProvider.GetExtensions() ?? new Dictionary<string, string>();
-                        var nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-                        var expMs = token.ExpiresOn.ToUnixTimeMilliseconds();
+                        Dictionary<string, string> extensions = _securityProvider.GetExtensions() ?? new Dictionary<string, string>();
+                        long nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                        long expMs = token.ExpiresOn.ToUnixTimeMilliseconds();
                         if (expMs <= nowMs)
                         {
                             throw new InvalidOperationException(
@@ -321,11 +360,13 @@ namespace JohBloch.ConfluentKafka.Clients.Services
         /// </summary>
         private ConsumerConfig BuildConsumerConfig()
         {
-            var config = new ConsumerConfig
+            _oauthRefreshHandlerEnabled = false;
+
+            ConsumerConfig config = new ConsumerConfig
             {
                 BootstrapServers = _kafkaConsumerOpts.BootstrapServers,
                 GroupId = _kafkaConsumerOpts.GroupId,
-                AutoOffsetReset = Enum.TryParse<AutoOffsetReset>(_kafkaConsumerOpts.AutoOffsetReset, out var offsetReset)
+                AutoOffsetReset = Enum.TryParse<AutoOffsetReset>(_kafkaConsumerOpts.AutoOffsetReset, out AutoOffsetReset offsetReset)
                     ? offsetReset
                     : AutoOffsetReset.Earliest,
                 EnableAutoCommit = _kafkaConsumerOpts.EnableAutoCommit,
@@ -341,32 +382,69 @@ namespace JohBloch.ConfluentKafka.Clients.Services
             ApplyConfigDictionary(config, _globalConfig);
             ApplyConfigDictionary(config, _consumerOverrides);
 
-            // Optional: let SAL provide additional SASL configs if necessary
-            var salConfig = _securityProvider.GetKafkaSaslConfig();
-            if (salConfig is not null && salConfig.Count > 0)
+            Dictionary<string, string>? saslFromProvider = null;
+            KafkaConsumerSecurityMode mode = _kafkaConsumerOpts.SecurityMode;
+
+            if (mode == KafkaConsumerSecurityMode.Auto)
             {
-                // If SAL provides SASL settings, switch protocol to SaslSsl and apply values
-                // Expectation: SAL includes keys like 'sasl.mechanism', 'sasl.oauthbearer.method', and token endpoint url when using OIDC
-                config.SecurityProtocol = SecurityProtocol.SaslSsl;
-
-                ApplyConfigDictionary(config, salConfig);
-
-                // If SAL did not explicitly set mechanism/method, do not force OIDC
-                // Only set OAuth/OIDC when required keys exist
-                if (salConfig.TryGetValue("sasl.mechanism", out var mech) && mech.Equals("oauthbearer", StringComparison.OrdinalIgnoreCase))
+                // Prefer api_key/api_secret when present; otherwise fall back to OAuth when configured.
+                if (!string.IsNullOrWhiteSpace(_kafkaConsumerOpts.ApiKey)
+                    || !string.IsNullOrWhiteSpace(_kafkaConsumerOpts.ApiSecret))
                 {
-                    // Only set OIDC if token endpoint URL is supplied
-                    if (salConfig.ContainsKey("sasl.oauthbearer.token.endpoint.url"))
+                    mode = KafkaConsumerSecurityMode.ApiKeySecret;
+                }
+                else
+                {
+                    saslFromProvider = _securityProvider.GetKafkaSaslConfig();
+                    mode = (saslFromProvider is not null && saslFromProvider.Count > 0)
+                        ? KafkaConsumerSecurityMode.OAuth
+                        : KafkaConsumerSecurityMode.None;
+                }
+            }
+
+            if (mode == KafkaConsumerSecurityMode.ApiKeySecret)
+            {
+                if (string.IsNullOrWhiteSpace(_kafkaConsumerOpts.ApiKey)
+                    || string.IsNullOrWhiteSpace(_kafkaConsumerOpts.ApiSecret))
+                {
+                    throw new InvalidOperationException(
+                        "Consumer SecurityMode is ApiKeySecret, but ApiKey/ApiSecret is missing.");
+                }
+
+                _oauthRefreshHandlerEnabled = false;
+
+                config.SecurityProtocol = SecurityProtocol.SaslSsl;
+                config.SaslMechanism = SaslMechanism.Plain;
+                config.SaslUsername = _kafkaConsumerOpts.ApiKey;
+                config.SaslPassword = _kafkaConsumerOpts.ApiSecret;
+            }
+            else if (mode == KafkaConsumerSecurityMode.OAuth)
+            {
+                _oauthRefreshHandlerEnabled = true;
+
+                saslFromProvider ??= _securityProvider.GetKafkaSaslConfig();
+                if (saslFromProvider is not null && saslFromProvider.Count > 0)
+                {
+                    config.SecurityProtocol = SecurityProtocol.SaslSsl;
+                    ApplyConfigDictionary(config, saslFromProvider);
+
+                    if (saslFromProvider.TryGetValue("sasl.mechanism", out string? mech)
+                        && mech.Equals("oauthbearer", StringComparison.OrdinalIgnoreCase))
                     {
                         config.SaslMechanism = SaslMechanism.OAuthBearer;
-                        config.SaslOauthbearerMethod = SaslOauthbearerMethod.Oidc;
-                    }
-                    else
-                    {
-                        // Leave method unset to avoid Kafka requiring missing endpoint
-                        config.SaslMechanism = SaslMechanism.OAuthBearer;
+
+                        // Only set OIDC if token endpoint URL is supplied
+                        if (saslFromProvider.ContainsKey("sasl.oauthbearer.token.endpoint.url"))
+                        {
+                            config.SaslOauthbearerMethod = SaslOauthbearerMethod.Oidc;
+                        }
                     }
                 }
+            }
+            else
+            {
+                // None: do not apply OAuth even if globally configured.
+                _oauthRefreshHandlerEnabled = false;
             }
 
             return config;
@@ -374,9 +452,12 @@ namespace JohBloch.ConfluentKafka.Clients.Services
 
         private static void ApplyConfigDictionary(ClientConfig config, IDictionary<string, string>? configDictionary)
         {
-            if (configDictionary is null) return;
+            if (configDictionary is null)
+            {
+                return;
+            }
 
-            foreach (var kvp in configDictionary)
+            foreach (KeyValuePair<string, string> kvp in configDictionary)
             {
                 if (!string.IsNullOrWhiteSpace(kvp.Value))
                 {
@@ -397,7 +478,7 @@ namespace JohBloch.ConfluentKafka.Clients.Services
                 throw new ArgumentNullException(nameof(topics));
             }
 
-            var topicsList = topics.ToList();
+            List<string> topicsList = topics.ToList();
             if (topicsList.Count == 0)
             {
                 throw new ArgumentException("At least one topic must be specified", nameof(topics));
@@ -416,10 +497,10 @@ namespace JohBloch.ConfluentKafka.Clients.Services
             try
             {
                 // bounded poll with cancellation
-                var timeout = TimeSpan.FromSeconds(5);
+                TimeSpan timeout = TimeSpan.FromSeconds(5);
                 ConsumeResult<string, byte[]>? result = null;
 
-                var source = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                CancellationTokenSource source = CancellationTokenSource.CreateLinkedTokenSource(ct);
                 source.CancelAfter(timeout);
 
                 try
@@ -437,7 +518,7 @@ namespace JohBloch.ConfluentKafka.Clients.Services
                 }
 
                 // raw value
-                var bytes = result.Message.Value;
+                byte[]? bytes = result.Message.Value;
                 if (bytes is null)
                 {
                     return null; // tombstone
@@ -455,10 +536,10 @@ namespace JohBloch.ConfluentKafka.Clients.Services
                 else
                 {
                     // Determine schema type
-                    var schemaType = await DetermineSchemaTypeAsync(bytes, result.Topic);
+                    Models.SchemaType schemaType = await DetermineSchemaTypeAsync(bytes, result.Topic);
                     
                     // Use appropriate deserializer
-                    var deserializer = _deserializerFactory.Create<T>(schemaType);
+                    IMessageDeserializer<T> deserializer = _deserializerFactory.Create<T>(schemaType);
                     value = await deserializer.DeserializeAsync(
                         bytes,
                         new SerializationContext(MessageComponentType.Value, result.Topic));
@@ -504,11 +585,11 @@ namespace JohBloch.ConfluentKafka.Clients.Services
                 //
 
                 // Set a timeout to avoid blocking indefinitely
-                var timeout = TimeSpan.FromSeconds(5);
+                TimeSpan timeout = TimeSpan.FromSeconds(5);
                 ConsumeResult<string, byte[]>? result = null;
 
                 // Try to consume with cancellation token support
-                var source = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                CancellationTokenSource source = CancellationTokenSource.CreateLinkedTokenSource(ct);
                 source.CancelAfter(timeout);
 
                 try
@@ -543,7 +624,7 @@ namespace JohBloch.ConfluentKafka.Clients.Services
                 // message received
 
                 // Get the raw bytes
-                var bytes = result.Message.Value;
+                byte[]? bytes = result.Message.Value;
                 if (bytes is null)
                 {
                     // tombstone
@@ -551,11 +632,11 @@ namespace JohBloch.ConfluentKafka.Clients.Services
                 }
 
                 // Determine schema type and create deserializer
-                var schemaType = await DetermineSchemaTypeAsync(bytes, result.Topic);
-                var deserializer = _deserializerFactory.Create<T>(schemaType);
+                Models.SchemaType schemaType = await DetermineSchemaTypeAsync(bytes, result.Topic);
+                IMessageDeserializer<T> deserializer = _deserializerFactory.Create<T>(schemaType);
 
                 // Deserialize the bytes
-                var value = await deserializer.DeserializeAsync(
+                T value = await deserializer.DeserializeAsync(
                     bytes,
                     new SerializationContext(MessageComponentType.Value, result.Topic));
 
@@ -605,8 +686,8 @@ namespace JohBloch.ConfluentKafka.Clients.Services
         /// </summary>
         private async Task<List<ConsumeResult<string, T>>> ConsumeBatchWithDeserializer<T>(int maxMessages, int timeoutMs, CancellationToken ct)
         {
-            var results = new List<ConsumeResult<string, T>>();
-            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+            List<ConsumeResult<string, T>> results = new List<ConsumeResult<string, T>>();
+            System.Diagnostics.Stopwatch stopwatch = System.Diagnostics.Stopwatch.StartNew();
 
             try
             {
@@ -637,8 +718,8 @@ namespace JohBloch.ConfluentKafka.Clients.Services
                     //
 
                     // Calculate remaining timeout for the overall batch and enforce a sensible per-iteration floor to avoid near-immediate cancellation
-                    var remainingTimeout = Math.Max(1, timeoutMs - (int)stopwatch.ElapsedMilliseconds);
-                    var perIterationTimeoutMs = Math.Min(1000, Math.Max(200, remainingTimeout)); // 200ms-1s window
+                    int remainingTimeout = Math.Max(1, timeoutMs - (int)stopwatch.ElapsedMilliseconds);
+                    int perIterationTimeoutMs = Math.Min(1000, Math.Max(200, remainingTimeout)); // 200ms-1s window
                     //
                     LogAssignmentAndLag(nameof(ConsumeBatchWithDeserializer));
                     // Try to consume a single message using bounded poll; null on timeout
@@ -674,20 +755,20 @@ namespace JohBloch.ConfluentKafka.Clients.Services
                     }
                     //
                     // Log structured message meta instead of object ToString
-                    var keyStr = result.Message?.Key;
+                    string? keyStr = result.Message?.Key;
                     //
-                    var headersStr = FormatHeaders(result.Message?.Headers);
+                    string headersStr = FormatHeaders(result.Message?.Headers);
                     //
-                    var valLen = result.Message?.Value?.Length ?? 0;
+                    int valLen = result.Message?.Value?.Length ?? 0;
                     //
-                    var preview = result.Message?.Value is null ? "null" : PreviewBytes(result.Message.Value, 64);
+                    string preview = result.Message?.Value is null ? "null" : PreviewBytes(result.Message.Value, 64);
                     //
                     // Message is guaranteed non-null here due to early guard above
-                    var msg = result.Message;
+                    Message<string, byte[]> msg = result.Message!;
 
                     //
                     // Get the raw bytes
-                    var bytes = msg!.Value;
+                    byte[]? bytes = msg.Value;
                     if (bytes is null)
                     {
                         // tombstone
@@ -695,22 +776,22 @@ namespace JohBloch.ConfluentKafka.Clients.Services
                     }
                     
                     // Determine schema type and create deserializer
-                    var schemaType = await DetermineSchemaTypeAsync(bytes, result.Topic);
-                    var deserializer = _deserializerFactory.Create<T>(schemaType);
+                    Models.SchemaType schemaType = await DetermineSchemaTypeAsync(bytes, result.Topic);
+                    IMessageDeserializer<T> deserializer = _deserializerFactory.Create<T>(schemaType);
                     
                     //                    
                     // Deserialize the bytes
-                    var value = await deserializer.DeserializeAsync(
+                    T value = await deserializer.DeserializeAsync(
                         bytes,
                         new SerializationContext(MessageComponentType.Value, result.Topic));
                     //
                     try
                     {
-                        var formatted = FormatValue(value, 2000);
+                        string formatted = FormatValue(value, 2000);
                         //
                     }
                     catch { }
-                    var typedResult = new ConsumeResult<string, T>
+                    ConsumeResult<string, T> typedResult = new ConsumeResult<string, T>
                     {
                         Topic = result.Topic,
                         Partition = result.Partition,
@@ -917,16 +998,16 @@ namespace JohBloch.ConfluentKafka.Clients.Services
         {
             try
             {
-                var assignment = _consumer?.Assignment ?? new List<TopicPartition>();
+                List<TopicPartition> assignment = _consumer?.Assignment ?? new List<TopicPartition>();
                 if (assignment.Count == 0)
                 {
                     // No partitions assigned yet
                     return;
                 }
 
-                foreach (var tp in assignment)
+                foreach (TopicPartition tp in assignment)
                 {
-                    var pos = _consumer!.Position(tp);
+                    Offset pos = _consumer!.Position(tp);
                     WatermarkOffsets wm;
                     try
                     {
@@ -953,13 +1034,15 @@ namespace JohBloch.ConfluentKafka.Clients.Services
         private static string FormatHeaders(Headers? headers)
         {
             if (headers == null || headers.Count == 0)
+            {
                 return string.Empty;
+            }
             try
             {
                 return string.Join(", ", headers.Select(h =>
                 {
-                    var pv = h.GetValueBytes();
-                    var prev = pv is null ? "null" : PreviewBytes(pv, 16);
+                    byte[]? pv = h.GetValueBytes();
+                    string prev = pv is null ? "null" : PreviewBytes(pv, 16);
                     return $"{h.Key}={prev}";
                 }));
             }
@@ -968,23 +1051,31 @@ namespace JohBloch.ConfluentKafka.Clients.Services
 
         private static string PreviewBytes(byte[]? data, int max)
         {
-            var take = Math.Min(max, data?.Length ?? 0);
-            if (take == 0) return string.Empty;
-            var sb = new System.Text.StringBuilder(take * 2);
-            for (int i = 0; i < take; i++) sb.Append(data![i].ToString("X2"));
-            if (take < (data?.Length ?? 0)) sb.Append("...");
-            return sb.ToString();
+            if (data is null || data.Length == 0)
+            {
+                return string.Empty;
+            }
+
+            int len = Math.Min(max, data.Length);
+            string hex = Convert.ToHexString(data.AsSpan(0, len));
+            return data.Length > max ? hex + "..." : hex;
         }
 
         private static string FormatValue(object? value, int maxChars)
         {
-            if (value is null) return "null";
+            if (value is null)
+            {
+                return "null";
+            }
             try
             {
                 string s;
                 try { s = System.Text.Json.JsonSerializer.Serialize(value); }
                 catch { s = value.ToString() ?? value.GetType().Name; }
-                if (s.Length > maxChars) s = s.Substring(0, maxChars) + "...";
+                if (s.Length > maxChars)
+                {
+                    s = s.Substring(0, maxChars) + "...";
+                }
                 return s;
             }
             catch { return "<format-error>"; }
@@ -996,7 +1087,7 @@ namespace JohBloch.ConfluentKafka.Clients.Services
         private async Task<Models.SchemaType> DetermineSchemaTypeAsync(byte[] data, string topic)
         {
             // Check if there's a per-topic override
-            if (_kafkaConsumerOpts.TopicSchemaTypes.TryGetValue(topic, out var overrideType))
+            if (_kafkaConsumerOpts.TopicSchemaTypes.TryGetValue(topic, out Models.SchemaType overrideType))
             {
                 return overrideType;
             }

@@ -86,8 +86,8 @@ public sealed class MsalDeviceCodeSecurityTokenProvider(
     public Dictionary<string, string>? GetExtensions()
     {
         return GetExtensions(
-            _kafkaClientOptions.KafkaOauthLogicalCluster,
-            _kafkaClientOptions.KafkaOauthIdentityPoolId);
+            _kafkaClientOptions.OAuth.LogicalCluster,
+            _kafkaClientOptions.OAuth.IdentityPoolId);
     }
 
     internal static Dictionary<string, string>? GetExtensions(string? logicalCluster, string? identityPoolId)

@@ -262,13 +262,13 @@ public class KafkaProducerClientDetectedSchemaTests : DisposableTestBase
 
     private static ConcurrentDictionary<(string ProducerKey, Type Type, bool Batch), object> GetCache(KafkaProducerClient client)
     {
-        var fi = typeof(KafkaProducerClient).GetField("_producers", BindingFlags.Instance | BindingFlags.NonPublic);
+        FieldInfo? fi = typeof(KafkaProducerClient).GetField("_producers", BindingFlags.Instance | BindingFlags.NonPublic);
         return (ConcurrentDictionary<(string, Type, bool), object>)fi!.GetValue(client)!;
     }
 
     private static void InjectFake(KafkaProducerClient client, string producerKey, bool batch, object fake, string? serializerTypeFullName)
     {
-        var cache = GetCache(client);
+        ConcurrentDictionary<(string ProducerKey, Type Type, bool Batch), object> cache = GetCache(client);
         cache[(producerKey + (serializerTypeFullName ?? ""), typeof(string), batch)] = fake;
     }
 
@@ -284,11 +284,11 @@ public class KafkaProducerClientDetectedSchemaTests : DisposableTestBase
         };
 
         ILogger<KafkaProducerClient> logger = NullLogger<KafkaProducerClient>.Instance;
-        var client = Track(new KafkaProducerClient(opts, new SecStub(), schemaExtClient, NullLoggerFactory.Instance, logger));
+        KafkaProducerClient client = Track(new KafkaProducerClient(opts, new SecStub(), schemaExtClient, NullLoggerFactory.Instance, logger));
 
         var fakeDefault = new FakeProducer<string>();
-        var wrapperOpenType = typeof(KafkaProducerClient).Assembly.GetType("JohBloch.ConfluentKafka.Clients.Services.AsyncSerializerWrapper`1", throwOnError: true);
-        var wrapperType = wrapperOpenType!.MakeGenericType(typeof(string));
+        Type? wrapperOpenType = typeof(KafkaProducerClient).Assembly.GetType("JohBloch.ConfluentKafka.Clients.Services.AsyncSerializerWrapper`1", throwOnError: true);
+        Type wrapperType = wrapperOpenType!.MakeGenericType(typeof(string));
         InjectFake(client, "default", batch: false, fakeDefault, wrapperType.FullName);
 
         await client.SendMessageWithDetectedSchemaAsync("v1", "k1", producerKey: "default");

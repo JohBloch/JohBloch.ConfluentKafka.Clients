@@ -71,11 +71,36 @@ catch (Exception ex)
 
 static IConfiguration BuildConfiguration()
 {
+    IConfigurationRoot fileConfig = new ConfigurationBuilder()
+        .AddJsonFile(Path.Combine(AppContext.BaseDirectory, "local.settings.sample.json"), optional: true, reloadOnChange: false)
+        .AddJsonFile(Path.Combine(AppContext.BaseDirectory, "local.settings.json"), optional: true, reloadOnChange: false)
+        .Build();
+
+    Dictionary<string, string?> functionsValues = ExtractFunctionsValues(fileConfig);
+
     return new ConfigurationBuilder()
         .AddJsonFile(Path.Combine(AppContext.BaseDirectory, "local.settings.sample.json"), optional: true, reloadOnChange: false)
         .AddJsonFile(Path.Combine(AppContext.BaseDirectory, "local.settings.json"), optional: true, reloadOnChange: false)
+        .AddInMemoryCollection(functionsValues)
         .AddEnvironmentVariables()
         .Build();
+}
+
+static Dictionary<string, string?> ExtractFunctionsValues(IConfiguration configuration)
+{
+    IConfigurationSection values = configuration.GetSection("Values");
+    if (!values.Exists())
+    {
+        return new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+    }
+
+    return values
+        .GetChildren()
+        .Where(c => c.Value is not null)
+        .ToDictionary(
+            c => c.Key.Replace("__", ":", StringComparison.Ordinal),
+            c => (string?)c.Value,
+            StringComparer.OrdinalIgnoreCase);
 }
 
 static void ConfigureLogging(ILoggingBuilder builder)

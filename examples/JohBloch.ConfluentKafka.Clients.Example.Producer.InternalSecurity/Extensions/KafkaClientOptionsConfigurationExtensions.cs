@@ -32,34 +32,34 @@ internal static class KafkaClientOptionsConfigurationExtensions
         IConfigurationSection kafka = configuration.GetSection("Kafka");
         options.BootstrapServers = kafka["BootstrapServers"] ?? string.Empty;
 
-        // Optional: Confluent Cloud (or other) OAuth settings for Kafka.
-        IConfigurationSection oauth = kafka.GetSection("OAuth");
-        if (oauth.Exists())
+        IConfigurationSection kafkaOAuth = kafka.GetSection("OAuth");
+
+        // Read nested Kafka:OAuth:* (matches env vars Kafka__OAuth__*)
+        string? tokenEndpointUrl =
+            GetNonEmpty(kafkaOAuth, "TokenEndpointUrl")
+            ?? GetNonEmpty(kafkaOAuth, "TokenEndpoint")
+            ?? GetNonEmpty(kafkaOAuth, "TokenEndpointUri");
+
+        string? authority = GetNonEmpty(kafkaOAuth, "Authority");
+        if (tokenEndpointUrl is null && authority is not null)
         {
-            string? authority = GetNonEmpty(oauth, "Authority");
-            string? tokenEndpointUrl = GetNonEmpty(oauth, "TokenEndpointUrl");
-            if (tokenEndpointUrl == null && authority != null)
-            {
-                tokenEndpointUrl = authority.TrimEnd('/') + "/oauth2/v2.0/token";
-            }
-
-            options.KafkaOauthTokenEndpoint = tokenEndpointUrl;
-
-            string? clientId = GetNonEmpty(oauth, "ClientId");
-            if (clientId != null) options.KafkaOauthClientId = clientId;
-
-            string? clientSecret = GetNonEmpty(oauth, "ClientSecret");
-            if (clientSecret != null) options.KafkaOauthClientSecret = clientSecret;
-
-            string? scope = GetNonEmpty(oauth, "Scope");
-            if (scope != null) options.KafkaOauthScope = scope;
-
-            string? logicalCluster = GetNonEmpty(oauth, "LogicalCluster");
-            if (logicalCluster != null) options.KafkaOauthLogicalCluster = logicalCluster;
-
-            string? identityPoolId = GetNonEmpty(oauth, "IdentityPoolId");
-            if (identityPoolId != null) options.KafkaOauthIdentityPoolId = identityPoolId;
+            tokenEndpointUrl = authority.TrimEnd('/') + "/oauth2/v2.0/token";
         }
+
+        string? clientId = GetNonEmpty(kafkaOAuth, "ClientId");
+        string? clientSecret = GetNonEmpty(kafkaOAuth, "ClientSecret");
+        string? scope = GetNonEmpty(kafkaOAuth, "Scope");
+        string? logicalCluster = GetNonEmpty(kafkaOAuth, "LogicalCluster");
+        string? identityPoolId = GetNonEmpty(kafkaOAuth, "IdentityPoolId");
+
+        // Populate the new nested options (library supports this)
+        options.OAuth.TokenEndpointUrl = tokenEndpointUrl;
+        options.OAuth.ClientId = clientId;
+        options.OAuth.ClientSecret = clientSecret;
+        options.OAuth.Scope = scope;
+        options.OAuth.LogicalCluster = logicalCluster;
+        options.OAuth.IdentityPoolId = identityPoolId;
+
         return options;
     }
 

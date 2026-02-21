@@ -96,6 +96,10 @@ public static class KafkaServiceCollectionExtensions
             KafkaConsumerOptions source = clientOpts.Value.Consumer;
             KafkaClientOptions common = clientOpts.Value;
 
+            consumerOpts.SecurityMode = source.SecurityMode;
+            consumerOpts.ApiKey = source.ApiKey;
+            consumerOpts.ApiSecret = source.ApiSecret;
+
             consumerOpts.BootstrapServers = string.IsNullOrEmpty(source.BootstrapServers)
                 ? common.BootstrapServers
                 : source.BootstrapServers;
@@ -105,6 +109,7 @@ public static class KafkaServiceCollectionExtensions
                 : source.GroupId;
 
             consumerOpts.Topic = source.Topic;
+            consumerOpts.Topics = source.Topics;
             consumerOpts.EnableAutoCommit = source.EnableAutoCommit;
             consumerOpts.AutoOffsetReset = source.AutoOffsetReset;
             consumerOpts.SessionTimeoutMs = source.SessionTimeoutMs;
