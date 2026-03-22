@@ -166,7 +166,7 @@ jobs:
         du -Sh . | sort -rh | head -n 20 || true
 
     - name: Test Report
-      uses: dorny/test-reporter@v2
+      uses: dorny/test-reporter@v3
       if: success() || failure()
       with:
         name: Test Results
