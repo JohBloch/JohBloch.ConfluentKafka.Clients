@@ -266,9 +266,13 @@ public class OAuthSecurityTokenProvider : ISecurityTokenProvider
 
         // Use standard librdkafka keys.
 
-        // Note: some clusters validate OIDC config and require sasl.oauthbearer.client.id
-
-        // when sasl.oauthbearer.method=oidc, even if tokens are provided via the refresh handler.
+        // IMPORTANT:
+        // This library provides OAuth tokens via the .NET refresh callback (OAuthBearerSetToken).
+        // On Linux builds of librdkafka that include OIDC support (curl), setting
+        // `sasl.oauthbearer.method=oidc` and `sasl.oauthbearer.token.endpoint.url` may activate the
+        // built-in OIDC token fetcher and conflict with callback-based token injection.
+        // Windows builds often lack OIDC support, masking the issue.
+        // To keep behavior consistent across OSes, we only set the minimal SASL settings here.
 
         var cfg = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
 
@@ -276,27 +280,9 @@ public class OAuthSecurityTokenProvider : ISecurityTokenProvider
 
             ["security.protocol"] = "sasl_ssl",
 
-            ["sasl.mechanism"] = "OAUTHBEARER",
-
- 
-
-            // Many brokers use the OIDC method; endpoint url also helps future-proofing.
-
-            ["sasl.oauthbearer.method"] = "oidc",
-
-            ["sasl.oauthbearer.token.endpoint.url"] = _kafkaOAuth.TokenEndpoint!
+            ["sasl.mechanism"] = "OAUTHBEARER"
 
         };
-
- 
-
-        // Add OIDC-required client id (and commonly required secret) for brokers/librdkafka validation.
-
-        // These are still useful even when tokens are set via OAuthBearerSetToken refresh callbacks.
-
-        cfg["sasl.oauthbearer.client.id"] = _kafkaOAuth.ClientId!;
-
-        cfg["sasl.oauthbearer.client.secret"] = _kafkaOAuth.ClientSecret!;
 
  
 

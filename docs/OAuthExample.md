@@ -123,6 +123,24 @@ services.AddKafkaClients(options =>
 });
 ```
 
+Notes for Linux/container/Azure Functions deployments:
+
+- The certificate files must exist at runtime inside the container/app filesystem.
+- If you ship certs with your app, add them as `Content` and copy to publish output (example):
+
+```xml
+<ItemGroup>
+    <Content Include="certs\**\*" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+</ItemGroup>
+```
+
+- You may provide relative paths (for example `certs/cacert.pem`); the library will resolve known SSL path keys (like `ssl.ca.location`) relative to `AppContext.BaseDirectory`.
+
+OAuth note (important for Linux):
+
+- This library injects OAuth tokens via Confluent.Kafka's OAUTHBEARER refresh callback (`OAuthBearerSetToken`).
+- Avoid setting librdkafka's built-in OIDC config keys (like `sasl.oauthbearer.method=oidc` and `sasl.oauthbearer.token.endpoint.url`) unless you intentionally want librdkafka itself to fetch tokens; on Linux builds with OIDC support that can conflict with callback-based token injection.
+
 ## Environment-Based Configuration
 
 ```csharp

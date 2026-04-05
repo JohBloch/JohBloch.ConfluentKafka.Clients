@@ -79,7 +79,7 @@ internal static class KafkaClientOptionsConfigurationExtensions
         options.Consumer.ApiKey = consumer["ApiKey"];
         options.Consumer.ApiSecret = consumer["ApiSecret"];
 
-        // Topic subscription is handled by the example app (so it can subscribe to multiple topics).
+        // Topic subscription is handled by the library on client construction, based on Topic/Topics.
         // We still set Topic when a single topic is provided for backwards compatibility.
         options.Consumer.Topic = consumer["Topic"] ?? string.Empty;
         options.Consumer.Topics = GetConsumerTopics(configuration).ToList();

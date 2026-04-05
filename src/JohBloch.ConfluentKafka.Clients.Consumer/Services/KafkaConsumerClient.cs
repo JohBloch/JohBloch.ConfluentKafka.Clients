@@ -1,5 +1,6 @@
 using JohBloch.ConfluentKafka.Clients.Services.Serialization;
 using System.ComponentModel;
+using System.Text.Json;
 
 namespace JohBloch.ConfluentKafka.Clients.Services
 {
@@ -335,8 +336,12 @@ namespace JohBloch.ConfluentKafka.Clients.Services
                                 $"OAuth token is already expired (nowMs={nowMs}, expMs={expMs}).");
                         }
 
+                        var principalName = TryGetPrincipalNameFromJwt(token.AccessTokenValue)
+                            ?? config.GroupId
+                            ?? "kafka";
+
                         // librdkafka expects an absolute expiry timestamp (ms since epoch).
-                        consumer.OAuthBearerSetToken(token.AccessTokenValue, expMs, null, extensions);
+                        consumer.OAuthBearerSetToken(token.AccessTokenValue, expMs, principalName, extensions);
                     }
                     catch (Exception ex)
                     {
@@ -426,6 +431,12 @@ namespace JohBloch.ConfluentKafka.Clients.Services
                 if (saslFromProvider is not null && saslFromProvider.Count > 0)
                 {
                     config.SecurityProtocol = SecurityProtocol.SaslSsl;
+
+                    // Warn if the caller supplied OIDC-specific keys via global/override config.
+                    // When combined with callback-based token injection this can cause Linux-only failures.
+                    WarnIfOidcKeysPresent(_globalConfig);
+                    WarnIfOidcKeysPresent(_consumerOverrides);
+
                     ApplyConfigDictionary(config, saslFromProvider);
 
                     if (saslFromProvider.TryGetValue("sasl.mechanism", out string? mech)
@@ -450,6 +461,27 @@ namespace JohBloch.ConfluentKafka.Clients.Services
             return config;
         }
 
+        private void WarnIfOidcKeysPresent(IDictionary<string, string>? cfg)
+        {
+            if (cfg is null || cfg.Count == 0)
+            {
+                return;
+            }
+
+            bool hasOidc = cfg.Keys.Any(k =>
+                k.Equals("sasl.oauthbearer.method", StringComparison.OrdinalIgnoreCase)
+                || k.Equals("sasl.oauthbearer.token.endpoint.url", StringComparison.OrdinalIgnoreCase)
+                || k.Equals("sasl.oauthbearer.client.id", StringComparison.OrdinalIgnoreCase)
+                || k.Equals("sasl.oauthbearer.client.secret", StringComparison.OrdinalIgnoreCase));
+
+            if (hasOidc)
+            {
+                _logger.LogWarning(
+                    "Kafka config contains librdkafka OIDC keys (sasl.oauthbearer.*). This library injects tokens via the refresh callback; " +
+                    "on Linux builds with OIDC support these keys can conflict with OAuthBearerSetToken. Consider removing sasl.oauthbearer.method/token.endpoint.url/client.* from overrides.");
+            }
+        }
+
         private static void ApplyConfigDictionary(ClientConfig config, IDictionary<string, string>? configDictionary)
         {
             if (configDictionary is null)
@@ -461,9 +493,104 @@ namespace JohBloch.ConfluentKafka.Clients.Services
             {
                 if (!string.IsNullOrWhiteSpace(kvp.Value))
                 {
-                    config.Set(kvp.Key, kvp.Value);
+                    var value = NormalizeKnownSslPath(kvp.Key, kvp.Value);
+                    config.Set(kvp.Key, value);
                 }
             }
+        }
+
+        private static readonly string[] KnownSslPathKeys =
+        [
+            "ssl.ca.location",
+            "ssl.certificate.location",
+            "ssl.key.location",
+            "ssl.crl.location"
+        ];
+
+        private static string NormalizeKnownSslPath(string key, string value)
+        {
+            if (string.IsNullOrWhiteSpace(key) || string.IsNullOrWhiteSpace(value))
+            {
+                return value;
+            }
+
+            if (!KnownSslPathKeys.Contains(key, StringComparer.OrdinalIgnoreCase))
+            {
+                return value;
+            }
+
+            if (Path.IsPathRooted(value))
+            {
+                return value;
+            }
+
+            return Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, value));
+        }
+
+        private static string? TryGetPrincipalNameFromJwt(string accessToken)
+        {
+            if (string.IsNullOrWhiteSpace(accessToken))
+            {
+                return null;
+            }
+
+            try
+            {
+                string[] parts = accessToken.Split('.');
+                if (parts.Length < 2)
+                {
+                    return null;
+                }
+
+                byte[] payloadBytes = Base64UrlDecode(parts[1]);
+                using JsonDocument doc = JsonDocument.Parse(payloadBytes);
+                JsonElement root = doc.RootElement;
+
+                if (TryGetString(root, "preferred_username", out var preferred)) return preferred;
+                if (TryGetString(root, "upn", out var upn)) return upn;
+                if (TryGetString(root, "sub", out var sub)) return sub;
+                if (TryGetString(root, "oid", out var oid)) return oid;
+                if (TryGetString(root, "appid", out var appId)) return appId;
+
+                return null;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static bool TryGetString(JsonElement root, string propertyName, out string? value)
+        {
+            value = null;
+            if (root.ValueKind != JsonValueKind.Object)
+            {
+                return false;
+            }
+
+            if (!root.TryGetProperty(propertyName, out var prop))
+            {
+                return false;
+            }
+
+            if (prop.ValueKind != JsonValueKind.String)
+            {
+                return false;
+            }
+
+            value = prop.GetString();
+            return !string.IsNullOrWhiteSpace(value);
+        }
+
+        private static byte[] Base64UrlDecode(string base64Url)
+        {
+            string s = base64Url.Replace('-', '+').Replace('_', '/');
+            int padding = 4 - (s.Length % 4);
+            if (padding is > 0 and < 4)
+            {
+                s = s.PadRight(s.Length + padding, '=');
+            }
+            return Convert.FromBase64String(s);
         }
 
         /// <summary>

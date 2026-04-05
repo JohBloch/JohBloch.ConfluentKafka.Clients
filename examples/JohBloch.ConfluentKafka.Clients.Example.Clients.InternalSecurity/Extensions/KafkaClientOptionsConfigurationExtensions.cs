@@ -69,9 +69,10 @@ internal static class KafkaClientOptionsConfigurationExtensions
 
         options.Consumer.GroupId = options.GroupId;
 
-        // Topic subscription is handled by the example app (so it can subscribe to multiple topics).
+        // Topic subscription is handled by the library on client construction, based on Topic/Topics.
         // We still set Topic when a single topic is provided for backwards compatibility.
         options.Consumer.Topic = consumer["Topic"] ?? string.Empty;
+        options.Consumer.Topics = GetConsumerTopics(configuration).ToList();
         options.Consumer.AutoOffsetReset = consumer["AutoOffsetReset"] ?? "earliest";
         options.Consumer.EnableAutoCommit = TryGetBool(consumer, "EnableAutoCommit", defaultValue: true);
         options.Consumer.DefaultSchemaType = Enum.TryParse(consumer["DefaultSchemaType"], ignoreCase: true, out SchemaType parsed)
