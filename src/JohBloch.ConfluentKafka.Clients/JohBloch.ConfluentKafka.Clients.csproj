@@ -51,6 +51,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="10.0.5" />
     <ProjectReference Include="..\JohBloch.ConfluentKafka.Clients.Core\JohBloch.ConfluentKafka.Clients.Core.csproj" />
     <ProjectReference Include="..\JohBloch.ConfluentKafka.Clients.Consumer\JohBloch.ConfluentKafka.Clients.Consumer.csproj" />
     <ProjectReference Include="..\JohBloch.ConfluentKafka.Clients.Producer\JohBloch.ConfluentKafka.Clients.Producer.csproj" />
