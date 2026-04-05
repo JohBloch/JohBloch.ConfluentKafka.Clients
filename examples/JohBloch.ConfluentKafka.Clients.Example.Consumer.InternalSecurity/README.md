@@ -37,6 +37,9 @@ Examples:
 - `Kafka__BootstrapServers` -> `Kafka:BootstrapServers`
 - `Consumer__Topics` -> `Consumer:Topics`
 
+Notes:
+- Subscriptions are created automatically by the library when `IKafkaConsumerClient` is constructed, based on `Consumer:Topics` (or `Consumer:Topic`).
+
 ## Running
 
 ```powershell

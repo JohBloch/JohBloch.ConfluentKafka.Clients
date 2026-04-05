@@ -40,6 +40,9 @@ Examples:
 - `Msal__ClientId` -> `Msal:ClientId`
 - `SchemaRegistry__Cache__Redis__ConnectionString` -> `SchemaRegistry:Cache:Redis:ConnectionString`
 
+Notes:
+- Subscriptions are created automatically by the library when `IKafkaConsumerClient` is constructed, based on `Consumer:Topics` (or `Consumer:Topic`).
+
 ## Running
 
 ```powershell

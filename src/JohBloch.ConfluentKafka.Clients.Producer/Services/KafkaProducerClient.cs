@@ -1,6 +1,7 @@
 using JohBloch.ConfluentKafka.Clients.Services.Serialization;
 using JohBloch.ConfluentKafka.SchemaRegistryExtClient.Interfaces;
 using System.ComponentModel;
+using System.Text.Json;
 
 namespace JohBloch.ConfluentKafka.Clients.Services
 {
@@ -148,8 +149,12 @@ namespace JohBloch.ConfluentKafka.Clients.Services
                                 $"OAuth token is already expired (nowMs={nowMs}, expMs={expMs}).");
                         }
 
+                        var principalName = TryGetPrincipalNameFromJwt(token.AccessTokenValue)
+                            ?? cfg.ClientId
+                            ?? "kafka";
+
                         // librdkafka expects an absolute expiry timestamp (ms since epoch).
-                        client.OAuthBearerSetToken(token.AccessTokenValue, expMs, null, extensions);
+                        client.OAuthBearerSetToken(token.AccessTokenValue, expMs, principalName, extensions);
                     }
                     catch (Exception ex)
                     {
@@ -166,8 +171,28 @@ namespace JohBloch.ConfluentKafka.Clients.Services
             }
 
             builder
-                .SetLogHandler((_, log) => _logger.LogInformation("Kafka: {msg}", log.Message))
-                .SetErrorHandler((_, err) => _logger.LogError("Kafka error: {err}", err.Reason));
+                .SetLogHandler((_, log) =>
+                {
+                    LogLevel level = log.Level switch
+                    {
+                        SyslogLevel.Emergency or SyslogLevel.Alert or SyslogLevel.Critical or SyslogLevel.Error => LogLevel.Error,
+                        SyslogLevel.Warning => LogLevel.Warning,
+                        SyslogLevel.Notice or SyslogLevel.Info => LogLevel.Information,
+                        SyslogLevel.Debug => LogLevel.Debug,
+                        _ => LogLevel.Information
+                    };
+                    _logger.Log(level, "Kafka: {message}", log.Message);
+                })
+                .SetErrorHandler((_, err) =>
+                {
+                    _logger.LogError(
+                        "Kafka error: Code={Code} IsFatal={IsFatal} IsBrokerError={IsBrokerError} IsLocalError={IsLocalError} Reason={Reason}",
+                        err.Code,
+                        err.IsFatal,
+                        err.IsBrokerError,
+                        err.IsLocalError,
+                        err.Reason);
+                });
 
             // Use provided serializer if any, otherwise default to Chr.Avro Async schema serializer
             if (serializer is not null)
@@ -190,6 +215,18 @@ namespace JohBloch.ConfluentKafka.Clients.Services
             var saslCfg = _security.GetKafkaSaslConfig();
             var config = KafkaConfigHelper.CreateBaseConfig(producerOpts, saslCfg);
 
+            // If the app supplies OIDC-specific keys while we use callback-based token injection,
+            // librdkafka (especially on Linux builds with OIDC support) may attempt built-in token fetching.
+            // That can conflict with OAuthBearerSetToken and cause platform-specific failures.
+            if (config.SaslMechanism == SaslMechanism.OAuthBearer)
+            {
+                WarnIfOidcKeysPresent(_globalConfig);
+                if (_perProducerConfigs?.TryGetValue(producerKey, out var cfgDict) == true)
+                {
+                    WarnIfOidcKeysPresent(cfgDict);
+                }
+            }
+
             // Apply optional global configs and per-producer overrides
             KafkaConfigHelper.ApplyConfigDictionary(config, _globalConfig);
             
@@ -205,11 +242,41 @@ namespace JohBloch.ConfluentKafka.Clients.Services
             return config;
         }
 
+        private void WarnIfOidcKeysPresent(IDictionary<string, string>? cfg)
+        {
+            if (cfg is null || cfg.Count == 0)
+            {
+                return;
+            }
+
+            // Note: presence is checked case-insensitively because configuration sources may differ.
+            bool hasOidc = cfg.Keys.Any(k =>
+                k.Equals("sasl.oauthbearer.method", StringComparison.OrdinalIgnoreCase)
+                || k.Equals("sasl.oauthbearer.token.endpoint.url", StringComparison.OrdinalIgnoreCase)
+                || k.Equals("sasl.oauthbearer.client.id", StringComparison.OrdinalIgnoreCase)
+                || k.Equals("sasl.oauthbearer.client.secret", StringComparison.OrdinalIgnoreCase));
+
+            if (hasOidc)
+            {
+                _logger.LogWarning(
+                    "Kafka config contains librdkafka OIDC keys (sasl.oauthbearer.*). This library injects tokens via the refresh callback; " +
+                    "on Linux builds with OIDC support these keys can conflict with OAuthBearerSetToken. Consider removing sasl.oauthbearer.method/token.endpoint.url/client.* from overrides.");
+            }
+        }
+
         /// <summary>
         /// Helper methods to build producer configuration.
         /// </summary>
         public static class KafkaConfigHelper
         {
+            private static readonly string[] KnownSslPathKeys =
+            [
+                "ssl.ca.location",
+                "ssl.certificate.location",
+                "ssl.key.location",
+                "ssl.crl.location"
+            ];
+
             /// <summary>
             /// Creates a base <see cref="ProducerConfig"/> using application options and optional SASL settings.
             /// </summary>
@@ -267,9 +334,32 @@ namespace JohBloch.ConfluentKafka.Clients.Services
                 {
                     if (!string.IsNullOrWhiteSpace(kvp.Value))
                     {
-                        config.Set(kvp.Key, kvp.Value);
+                        var value = NormalizeKnownSslPath(kvp.Key, kvp.Value);
+                        config.Set(kvp.Key, value);
                     }
                 }
+            }
+
+            private static string NormalizeKnownSslPath(string key, string value)
+            {
+                if (string.IsNullOrWhiteSpace(key) || string.IsNullOrWhiteSpace(value))
+                {
+                    return value;
+                }
+
+                if (!KnownSslPathKeys.Contains(key, StringComparer.OrdinalIgnoreCase))
+                {
+                    return value;
+                }
+
+                // Only normalize relative paths; keep absolute paths as-is.
+                if (Path.IsPathRooted(value))
+                {
+                    return value;
+                }
+
+                // Treat as relative to the application base directory (works for both Windows and Linux).
+                return Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, value));
             }
 
             /// <summary>
@@ -302,6 +392,74 @@ namespace JohBloch.ConfluentKafka.Clients.Services
                 "zstd" => CompressionType.Zstd,
                 _ => CompressionType.None
             };
+        }
+
+        private static string? TryGetPrincipalNameFromJwt(string accessToken)
+        {
+            if (string.IsNullOrWhiteSpace(accessToken))
+            {
+                return null;
+            }
+
+            try
+            {
+                // JWT: header.payload.signature
+                string[] parts = accessToken.Split('.');
+                if (parts.Length < 2)
+                {
+                    return null;
+                }
+
+                byte[] payloadBytes = Base64UrlDecode(parts[1]);
+                using JsonDocument doc = JsonDocument.Parse(payloadBytes);
+                JsonElement root = doc.RootElement;
+
+                // Prefer user-ish fields when present; otherwise fall back to app/service principal IDs.
+                if (TryGetString(root, "preferred_username", out var preferred)) return preferred;
+                if (TryGetString(root, "upn", out var upn)) return upn;
+                if (TryGetString(root, "sub", out var sub)) return sub;
+                if (TryGetString(root, "oid", out var oid)) return oid;
+                if (TryGetString(root, "appid", out var appId)) return appId;
+
+                return null;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static bool TryGetString(JsonElement root, string propertyName, out string? value)
+        {
+            value = null;
+            if (root.ValueKind != JsonValueKind.Object)
+            {
+                return false;
+            }
+
+            if (!root.TryGetProperty(propertyName, out var prop))
+            {
+                return false;
+            }
+
+            if (prop.ValueKind != JsonValueKind.String)
+            {
+                return false;
+            }
+
+            value = prop.GetString();
+            return !string.IsNullOrWhiteSpace(value);
+        }
+
+        private static byte[] Base64UrlDecode(string base64Url)
+        {
+            string s = base64Url.Replace('-', '+').Replace('_', '/');
+            int padding = 4 - (s.Length % 4);
+            if (padding is > 0 and < 4)
+            {
+                s = s.PadRight(s.Length + padding, '=');
+            }
+            return Convert.FromBase64String(s);
         }
 
         private int ParseInt(string value)

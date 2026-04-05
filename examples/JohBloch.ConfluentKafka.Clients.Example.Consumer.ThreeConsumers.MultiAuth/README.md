@@ -28,6 +28,7 @@ This example supports **two** `local.settings.json` formats:
 Notes:
 - `SchemaRegistryUrl` is required by the DI setup, but this example consumes `string` payloads, so it won’t call Schema Registry.
 - For Confluent Cloud API key/secret auth to Kafka brokers you typically need `SaslSsl + Plain`.
+- Subscriptions are created automatically by the library when `IKafkaConsumerClient` is constructed, based on `Consumer:Topics` (or `Consumer:Topic`).
 
 ## Run
 

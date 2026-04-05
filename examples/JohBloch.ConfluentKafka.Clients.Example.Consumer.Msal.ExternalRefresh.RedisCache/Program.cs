@@ -41,8 +41,7 @@ IReadOnlyList<string> consumerTopics = KafkaClientOptionsConfigurationExtensions
 
 if (consumerTopics.Count > 0)
 {
-    consumerClient.Subscribe(consumerTopics);
-    Console.WriteLine($" Subscribed to topics: {string.Join(", ", consumerTopics)}");
+    Console.WriteLine($" Configured topics: {string.Join(", ", consumerTopics)}");
 }
 
 try

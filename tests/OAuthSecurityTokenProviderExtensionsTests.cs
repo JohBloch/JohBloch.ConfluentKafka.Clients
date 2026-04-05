@@ -38,9 +38,11 @@ public class OAuthSecurityTokenProviderExtensionsTests
 
         Assert.NotNull(sasl);
         Assert.Equal("OAUTHBEARER", sasl!["sasl.mechanism"], StringComparer.OrdinalIgnoreCase);
-        Assert.Equal("https://example.com/oauth/token", sasl["sasl.oauthbearer.token.endpoint.url"]);
-        Assert.Equal("client-id", sasl["sasl.oauthbearer.client.id"]);
-        Assert.Equal(clientSecret, sasl["sasl.oauthbearer.client.secret"]);
+        // Tokens are injected via the refresh callback; do not enable librdkafka's built-in OIDC fetcher by default.
+        Assert.False(sasl.ContainsKey("sasl.oauthbearer.method"));
+        Assert.False(sasl.ContainsKey("sasl.oauthbearer.token.endpoint.url"));
+        Assert.False(sasl.ContainsKey("sasl.oauthbearer.client.id"));
+        Assert.False(sasl.ContainsKey("sasl.oauthbearer.client.secret"));
         Assert.Equal("scope-a scope-b", sasl["sasl.oauthbearer.scope"]);
     }
 

@@ -38,6 +38,9 @@ Examples:
 - `Producer__Producers__orders__Topic` -> `Producer:Producers:orders:Topic`
 - `Consumer__Topics` -> `Consumer:Topics`
 
+Notes:
+- Subscriptions are created automatically by the library when `IKafkaConsumerClient` is constructed, based on `Consumer:Topics` (or `Consumer:Topic`).
+
 ## Running
 
 ```powershell
