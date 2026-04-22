@@ -12,7 +12,7 @@
     <!-- Explicitly reference Chr.Avro packages to satisfy testhost dependency resolution -->
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.4.0" />
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" PrivateAssets="all" />
-    <PackageReference Include="Chr.Avro" Version="10.12.0" />
+    <PackageReference Include="Chr.Avro" Version="10.13.1" />
     <PackageReference Include="Chr.Avro.Confluent" Version="10.12.0" />
     <PackageReference Include="protobuf-net" Version="3.2.56" />
     <PackageReference Include="xunit" Version="2.9.3" />
