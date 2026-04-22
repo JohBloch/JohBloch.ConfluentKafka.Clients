@@ -51,6 +51,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Chr.Avro" Version="10.13.1" />
     <ProjectReference Include="..\JohBloch.ConfluentKafka.Clients.Core\JohBloch.ConfluentKafka.Clients.Core.csproj" />
     <ProjectReference Include="..\JohBloch.ConfluentKafka.Clients.Consumer\JohBloch.ConfluentKafka.Clients.Consumer.csproj" />
     <ProjectReference Include="..\JohBloch.ConfluentKafka.Clients.Producer\JohBloch.ConfluentKafka.Clients.Producer.csproj" />
